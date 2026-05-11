@@ -5,7 +5,7 @@ from torch.utils.data import Dataset
 class BaseDataset(Dataset, ABC):
 
     def __init__(self, root: str, split: str, transform=None):
-        assert split in ("train", "val", "test"), f"Split inválido: {split}"
+        assert split in ("train", "val", "test"), f"Invalid Splt: {split}"
         self.root = root
         self.split = split
         self.transform = transform
@@ -13,7 +13,7 @@ class BaseDataset(Dataset, ABC):
 
     @abstractmethod
     def _load_samples(self) -> list:
-        """Retorna lista de tuplas (image_path, mask_path)."""
+        """Return a list of tuples (image_path, mask_path)."""
         ...
 
     def __len__(self) -> int:
@@ -21,5 +21,5 @@ class BaseDataset(Dataset, ABC):
 
     @abstractmethod
     def __getitem__(self, idx: int) -> dict:
-        """Retorna dict com chaves 'image' e 'mask' como tensores."""
+        """Return dict with keys 'image' and 'mask' as a tensor"""
         ...
