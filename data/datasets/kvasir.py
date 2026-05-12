@@ -86,6 +86,8 @@ class KvasirDataset(BaseDataset):
             image = torch.from_numpy(image).permute(2, 0, 1).float() / 255.0
         if isinstance(mask, np.ndarray):
             mask = torch.from_numpy(mask).unsqueeze(0).float()
+        elif isinstance(mask, torch.Tensor) and mask.ndim == 2:
+            mask = mask.unsqueeze(0).float()
 
         return {
             "image": image,
