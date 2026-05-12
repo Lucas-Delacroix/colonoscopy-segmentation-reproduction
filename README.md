@@ -9,7 +9,7 @@ Download and prepare Kvasir-SEG with:
 uv run python -m scripts.download_dataset --dataset kvasir
 ```
 
-The command saves the downloaded archive in `data/downloads/` and prepares the dataset at:
+The command downloads the archive into a temporary directory and prepares the dataset at:
 
 ```text
 data/raw/kvasir-seg/

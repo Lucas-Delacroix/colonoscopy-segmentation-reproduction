@@ -207,7 +207,6 @@ tempCodeRunnerFile.py
 .ruff_cache/
 
 # Project data and generated artifacts
-data/downloads/
 data/raw/
 data/splits/
 outputs/
