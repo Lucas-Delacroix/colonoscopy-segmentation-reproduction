@@ -206,6 +206,13 @@ tempCodeRunnerFile.py
 # Ruff stuff:
 .ruff_cache/
 
+# Project data and generated artifacts
+data/downloads/
+data/raw/
+data/splits/
+outputs/
+checkpoints/
+
 # PyPI configuration file
 .pypirc
 
