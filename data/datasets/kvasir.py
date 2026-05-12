@@ -1,7 +1,7 @@
 import json
-import os
 import random
 from pathlib import Path
+
 import cv2
 import numpy as np
 import torch
@@ -19,23 +19,47 @@ class KvasirDataset(BaseDataset):
     """
 
     SPLIT_FILE = "data/splits/kvasir_split.json"
+    SPLIT_SEED = 42
 
     def __init__(self, root: str, split: str, transform=None, image_size: int = 352):
         self.image_size = image_size
         super().__init__(root, split, transform)
 
     def _load_samples(self) -> list:
-        images_dir = Path(self.root) / "images"
-        masks_dir = Path(self.root) / "masks"
+        root = Path(self.root)
+        images_dir = root / "images"
+        masks_dir = root / "masks"
+
+        if not root.exists():
+            raise FileNotFoundError(
+                f"Dataset root not found: {root}\n"
+                "Run: uv run python -m scripts.download_dataset --dataset kvasir"
+            )
+        if not images_dir.is_dir():
+            raise FileNotFoundError(f"Images directory not found: {images_dir}")
+        if not masks_dir.is_dir():
+            raise FileNotFoundError(f"Masks directory not found: {masks_dir}")
 
         all_images = sorted(images_dir.glob("*.jpg"))
-        all_masks = [masks_dir / img.name for img in all_images]
+        if not all_images:
+            raise ValueError(f"No .jpg images found in {images_dir}")
 
-        for mask_path in all_masks:
-            assert mask_path.exists(), f"Máscara não encontrada: {mask_path}"
+        all_masks = [masks_dir / img.name for img in all_images]
+        missing_masks = [mask_path for mask_path in all_masks if not mask_path.exists()]
+
+        if missing_masks:
+            examples = ", ".join(str(path) for path in missing_masks[:5])
+            raise FileNotFoundError(
+                f"Missing {len(missing_masks)} masks for Kvasir images. Examples: {examples}"
+            )
 
         split_indices = self._get_or_create_split(len(all_images))
         indices = split_indices[self.split]
+        if not indices:
+            raise ValueError(
+                f"Split '{self.split}' is empty in {self.SPLIT_FILE}. "
+                "Remove the split file and run again."
+            )
 
         return [(str(all_images[i]), str(all_masks[i])) for i in indices]
 
@@ -44,18 +68,25 @@ class KvasirDataset(BaseDataset):
 
         if split_path.exists():
             with open(split_path) as f:
-                return json.load(f)
+                split_indices = json.load(f)
+
+            split_total = sum(len(split_indices.get(split, [])) for split in ("train", "val", "test"))
+            if split_indices.get("total") == total or split_total == total:
+                return split_indices
 
         split_path.parent.mkdir(parents=True, exist_ok=True)
 
         indices = list(range(total))
-        random.seed(42)
+        random.seed(self.SPLIT_SEED)
         random.shuffle(indices)
 
         n_train = int(total * 0.8)
         n_val = int(total * 0.1)
 
         splits = {
+            "dataset": "kvasir",
+            "total": total,
+            "seed": self.SPLIT_SEED,
             "train": indices[:n_train],
             "val": indices[n_train : n_train + n_val],
             "test": indices[n_train + n_val :],

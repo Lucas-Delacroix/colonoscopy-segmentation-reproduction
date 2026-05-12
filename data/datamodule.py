@@ -23,8 +23,8 @@ class PolypDataModule:
         pin_memory: bool = True,
     ):
         assert dataset_name in self.DATASETS, (
-            f"Dataset '{dataset_name}' not reconized "
-            f"Opções: {list(self.DATASETS.keys())}"
+            f"Dataset '{dataset_name}' not recognized. "
+            f"Options: {list(self.DATASETS.keys())}"
         )
 
         self.dataset_cls = self.DATASETS[dataset_name]
@@ -61,7 +61,7 @@ class PolypDataModule:
         self._log_split_info()
 
     def _log_split_info(self):
-        print(f"Dataset carregado:")
+        print("Dataset loaded:")
         print(f"  Train:    {len(self._train_dataset)} images")
         print(f"  Validation: {len(self._val_dataset)} images")
         print(f"  Test:     {len(self._test_dataset)} images")

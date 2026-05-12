@@ -4,14 +4,14 @@ from albumentations.pytorch import ToTensorV2
 
 def get_train_transforms(image_size: int = 352) -> A.Compose:
     """
-    Pipeline de augmentation do paper:
-    - Espelhamento horizontal e vertical 
-    - Movimentação pelos eixos (até 10%)
-    - Variação de perspectiva (até 10%)
-    - Escala (80 a 120% do tamanho original)
-    - Ruído gaussiano
-    - Equalização
-    - Variações de brilho, contraste e saturação (até 20%)
+    Augmentation pipeline from the paper:
+    - Horizontal and vertical flipping
+    - Axis shifts (up to 10%)
+    - Perspective variation (up to 10%)
+    - Scale (80% to 120% of the original size)
+    - Gaussian noise
+    - Equalization
+    - Brightness, contrast, and saturation variation (up to 20%)
     """
     return A.Compose([
         A.Resize(image_size, image_size),
@@ -43,8 +43,8 @@ def get_train_transforms(image_size: int = 352) -> A.Compose:
 
 def get_val_transforms(image_size: int = 352) -> A.Compose:
     """
-    Validação e teste não recebem augmentation,
-    apenas redimensionamento e normalização.
+    Validation and test do not receive augmentation,
+    only resizing and normalization.
     """
     return A.Compose([
         A.Resize(image_size, image_size),
