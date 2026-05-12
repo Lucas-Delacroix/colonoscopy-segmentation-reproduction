@@ -8,7 +8,7 @@ from data.datasets.kvasir import KvasirDataset
 from data.transforms.augmentation import get_train_transforms, get_val_transforms
 
 
-class PolyпDataModule:
+class PolypDataModule:
     DATASETS = {
         "kvasir": KvasirDataset,
     }
