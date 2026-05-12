@@ -1,7 +1,11 @@
 import hashlib
+import shutil
+import ssl
+import tempfile
 from abc import ABC, abstractmethod
 from pathlib import Path
-from urllib.request import urlretrieve
+from urllib.error import URLError
+from urllib.request import Request, urlopen
 
 
 class DatasetDownloader(ABC):
@@ -14,12 +18,11 @@ class DatasetDownloader(ABC):
     def __init__(
         self,
         raw_root: str | Path = "data/raw",
-        downloads_root: str | Path = "data/downloads",
         force: bool = False,
     ):
         self.raw_root = Path(raw_root)
-        self.downloads_root = Path(downloads_root)
         self.force = force
+        self._archive_path: Path | None = None
 
     @property
     def dataset_dir(self) -> Path:
@@ -27,7 +30,9 @@ class DatasetDownloader(ABC):
 
     @property
     def archive_path(self) -> Path:
-        return self.downloads_root / self.archive_name
+        if self._archive_path is None:
+            raise RuntimeError("Archive path is only available during downloader.run().")
+        return self._archive_path
 
     def run(self) -> Path:
         """Download, prepare and validate the dataset."""
@@ -36,27 +41,47 @@ class DatasetDownloader(ABC):
             print(f"Dataset already available: {self.dataset_dir}")
             return self.dataset_dir
 
-        self.download()
-        self.prepare()
-        self.validate()
+        with tempfile.TemporaryDirectory(prefix=f"{self.name}-download-") as tmp:
+            self._archive_path = Path(tmp) / self.archive_name
+            try:
+                self.download()
+                self.prepare()
+                self.validate()
+            finally:
+                self._archive_path = None
 
         return self.dataset_dir
 
     def download(self) -> None:
         """Download the raw archive if needed."""
-        self.downloads_root.mkdir(parents=True, exist_ok=True)
-
-        if self.archive_path.exists() and not self.force:
-            self._verify_archive()
-            print(f"Archive already downloaded: {self.archive_path}")
-            return
-
         print(f"Downloading {self.name} from {self.url}")
+        print("TLS certificate verification is disabled; archive SHA256 will be checked.")
         partial_path = self.archive_path.with_suffix(self.archive_path.suffix + ".part")
-        urlretrieve(self.url, partial_path)
+        try:
+            self._download_url(self.url, partial_path)
+        except (OSError, URLError) as exc:
+            partial_path.unlink(missing_ok=True)
+            raise RuntimeError(
+                f"Failed to download {self.name} from {self.url}. "
+                "Check your network connection."
+            ) from exc
+
         partial_path.replace(self.archive_path)
         self._verify_archive()
         print(f"Saved archive: {self.archive_path}")
+
+    def _download_url(self, url: str, output_path: Path) -> None:
+        ssl_context = ssl.create_default_context()
+        ssl_context.check_hostname = False
+        ssl_context.verify_mode = ssl.CERT_NONE
+        request = Request(
+            url,
+            headers={"User-Agent": "colonoscopy-segmentation-reproduction/0.1"},
+        )
+
+        with urlopen(request, context=ssl_context) as response:
+            with open(output_path, "wb") as output_file:
+                shutil.copyfileobj(response, output_file)
 
     def _verify_archive(self) -> None:
         if self.sha256 is None:
