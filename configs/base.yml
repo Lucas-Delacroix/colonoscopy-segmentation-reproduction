@@ -15,6 +15,11 @@ data:
   num_workers: 4
   pin_memory: true
 
+model:
+  name: esfpnet
+  model_type: b0
+  num_classes: 1
+
 training:
   epochs: 200
   batch_size: 8
