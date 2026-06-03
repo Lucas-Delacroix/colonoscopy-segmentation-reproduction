@@ -42,3 +42,15 @@ Download the MiT-B2 ImageNet weights used by the ESFPNet config with:
 ```bash
 uv run python scripts/download_mit_weights.py --model_type b2
 ```
+
+Run a quick training pipeline smoke test with:
+
+```bash
+uv run python -m scripts.train --config configs/models/esfpnet.yaml --smoke_test
+```
+
+Run full ESFPNet training with:
+
+```bash
+uv run python -m scripts.train --config configs/models/esfpnet.yaml
+```
