@@ -39,3 +39,6 @@ def get_model(name: str, **kwargs) -> BaseModel:
 def list_models() -> list[str]:
     """Returns all registered model names."""
     return list(_REGISTRY.keys())
+
+# Import built-in models so decorators populate the registry.
+from models import esfpnet  # noqa: E402,F401
