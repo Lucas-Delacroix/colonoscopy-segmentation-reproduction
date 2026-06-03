@@ -8,54 +8,74 @@ class DiceLoss(nn.Module):
         super().__init__()
         self.smooth = smooth
 
-    def forward(self, logits: torch.Tensor, target: torch.Tensor) -> torch.Tensor:
-        probs = torch.sigmoid(logits)
-        probs = probs.contiguous().view(probs.size(0), -1)
-        target = target.contiguous().view(target.size(0), -1)
+    def forward(self, pred: torch.Tensor, target: torch.Tensor) -> torch.Tensor:
+        pred = torch.sigmoid(pred)
+        pred = pred.contiguous().view(-1)
+        target = target.contiguous().view(-1)
 
-        intersection = (probs * target).sum(dim=1)
-        dice = (2.0 * intersection + self.smooth) / (
-            probs.sum(dim=1) + target.sum(dim=1) + self.smooth
+        intersection = (pred * target).sum()
+        loss = 1 - (2.0 * intersection + self.smooth) / (
+            pred.sum() + target.sum() + self.smooth
         )
-        return 1.0 - dice.mean()
+        return loss
 
 
 class BCEDiceLoss(nn.Module):
-    def __init__(self):
+    """
+    Combinação de Binary Cross Entropy e Dice Loss.
+    Padrão na literatura de segmentação de pólipos.
+    BCE contribui com gradientes estáveis no início do treino.
+    Dice contribui com melhor performance na métrica final.
+    """
+
+    def __init__(self, bce_weight: float = 0.5, dice_weight: float = 0.5):
         super().__init__()
+        self.bce_weight = bce_weight
+        self.dice_weight = dice_weight
         self.bce = nn.BCEWithLogitsLoss()
         self.dice = DiceLoss()
 
-    def forward(self, logits: torch.Tensor, target: torch.Tensor) -> torch.Tensor:
-        return self.bce(logits, target) + self.dice(logits, target)
+    def forward(self, pred: torch.Tensor, target: torch.Tensor) -> torch.Tensor:
+        bce_loss = self.bce(pred, target)
+        dice_loss = self.dice(pred, target)
+        return self.bce_weight * bce_loss + self.dice_weight * dice_loss
 
 
 class StructureLoss(nn.Module):
-    def forward(self, logits: torch.Tensor, target: torch.Tensor) -> torch.Tensor:
-        weights = 1 + 5 * torch.abs(
+    """
+    Loss usada originalmente pelo PraNet e adotada por vários
+    modelos do paper como ESFPNet e SSFormer. Aplica pesos maiores
+    nas regiões de borda do pólipo, onde a segmentação é mais difícil.
+    """
+
+    def __init__(self):
+        super().__init__()
+
+    def forward(self, pred: torch.Tensor, target: torch.Tensor) -> torch.Tensor:
+        weight = 1 + 5 * torch.abs(
             F.avg_pool2d(target, kernel_size=31, stride=1, padding=15) - target
         )
+        bce = F.binary_cross_entropy_with_logits(pred, target, reduction="none")
+        weighted_bce = (weight * bce).sum(dim=(2, 3)) / weight.sum(dim=(2, 3))
 
-        bce = F.binary_cross_entropy_with_logits(logits, target, reduction="none")
-        weighted_bce = (weights * bce).sum(dim=(2, 3)) / weights.sum(dim=(2, 3))
+        pred_sigmoid = torch.sigmoid(pred)
+        inter = (pred_sigmoid * target * weight).sum(dim=(2, 3))
+        union = (pred_sigmoid * weight).sum(dim=(2, 3)) + (target * weight).sum(dim=(2, 3))
+        weighted_dice = 1 - (2 * inter + 1e-6) / (union + 1e-6)
 
-        probs = torch.sigmoid(logits)
-        intersection = ((probs * target) * weights).sum(dim=(2, 3))
-        union = ((probs + target) * weights).sum(dim=(2, 3))
-        weighted_iou = 1 - (intersection + 1) / (union - intersection + 1)
-
-        return (weighted_bce + weighted_iou).mean()
+        loss = (weighted_bce + weighted_dice).mean()
+        return loss
 
 
-def get_loss(name: str) -> nn.Module:
-    losses = {
-        "bce": nn.BCEWithLogitsLoss,
-        "dice": DiceLoss,
-        "bce_dice": BCEDiceLoss,
-        "structure": StructureLoss,
-    }
+LOSSES = {
+    "bce_dice": BCEDiceLoss,
+    "dice": DiceLoss,
+    "structure": StructureLoss,
+}
 
-    key = name.lower()
-    if key not in losses:
-        raise ValueError(f"Unrecognized loss '{name}'. Options: {list(losses)}")
-    return losses[key]()
+
+def get_loss(name: str, **kwargs) -> nn.Module:
+    assert name in LOSSES, (
+        f"Loss '{name}' não reconhecida. Opções: {list(LOSSES.keys())}"
+    )
+    return LOSSES[name](**kwargs)

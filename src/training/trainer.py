@@ -104,7 +104,6 @@ class Trainer:
             self.optimizer.zero_grad()
             preds = self.model(images)
 
-            # Some models return multiple outputs (auxiliary outputs)
             if isinstance(preds, (list, tuple)):
                 loss = sum(self.loss_fn(p, masks) for p in preds)
                 preds = preds[0]
