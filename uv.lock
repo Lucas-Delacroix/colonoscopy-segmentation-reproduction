@@ -138,7 +138,7 @@ wheels = [
 [[package]]
 name = "colonoscopy-segmentation-reproduction"
 version = "0.1.0"
-source = { virtual = "." }
+source = { editable = "." }
 dependencies = [
     { name = "albumentations" },
     { name = "hydra-core" },

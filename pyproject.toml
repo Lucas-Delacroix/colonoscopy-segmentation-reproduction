@@ -21,3 +21,13 @@ dependencies = [
     "tqdm>=4.67.3",
     "wandb>=0.26.1",
 ]
+
+[build-system]
+requires = ["setuptools>=81"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools.package-dir]
+"" = "src"
+
+[tool.setuptools.packages.find]
+where = ["src"]

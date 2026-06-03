@@ -7,7 +7,7 @@ def parse_args():
     parser = argparse.ArgumentParser(description="Download and prepare project datasets.")
     parser.add_argument(
         "--dataset",
-        required=True,
+        default="kvasir",
         choices=available_datasets(),
         help="Dataset to download.",
     )

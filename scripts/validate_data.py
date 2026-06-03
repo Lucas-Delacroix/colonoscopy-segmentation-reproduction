@@ -2,7 +2,7 @@
 Generate quick visual artifacts from Kvasir-SEG.
 
 Run with:
-    uv run python -m scripts.validate_data --data_root data/raw/kvasir-seg
+    uv run python scripts/validate_data.py --data_root data/raw/kvasir-seg
 """
 
 import argparse

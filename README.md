@@ -6,7 +6,7 @@ Reproduction of the paper: Application of Deep Learning Models for Semantic Segm
 Download and prepare Kvasir-SEG with:
 
 ```bash
-uv run python -m scripts.download_dataset --dataset kvasir
+uv run python scripts/download_dataset.py
 ```
 
 The command downloads the archive into a temporary directory and prepares the dataset at:
@@ -20,5 +20,5 @@ data/raw/kvasir-seg/
 Then validate the data loading with:
 
 ```bash
-uv run python -m scripts.validate_data --data_root data/raw/kvasir-seg
+uv run python scripts/validate_data.py --data_root data/raw/kvasir-seg
 ```
