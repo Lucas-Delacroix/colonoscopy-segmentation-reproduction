@@ -211,6 +211,7 @@ data/raw/
 data/splits/
 outputs/
 checkpoints/
+weights/
 
 # PyPI configuration file
 .pypirc

@@ -74,12 +74,13 @@ class Trainer:
         sched_config = self.config.get("scheduler", {})
         name = sched_config.get("name", "cosine").lower()
         epochs = self.config.get("epochs", 200)
+        t_max = int(sched_config.get("t_max", epochs))
         min_lr = float(sched_config.get("min_lr", 1e-6))
 
         if name == "cosine":
             return torch.optim.lr_scheduler.CosineAnnealingLR(
                 self.optimizer,
-                T_max=epochs,
+                T_max=t_max,
                 eta_min=min_lr,
             )
         if name == "step":

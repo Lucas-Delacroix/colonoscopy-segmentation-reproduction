@@ -5,7 +5,7 @@ model:
   name: esfpnet
   model_type: b2
   num_classes: 1
-  pretrained_path: null
+  pretrained_path: weights/mit_b2.pth
 
 training:
   epochs: 200

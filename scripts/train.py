@@ -119,6 +119,8 @@ def main():
         config["training"]["epochs"] = args.epochs
 
     if args.smoke_test:
+        original_epochs = config["training"].get("epochs", 200)
+        config["training"].setdefault("scheduler", {})["t_max"] = original_epochs
         config["training"]["epochs"] = 3
         config["training"]["batch_size"] = min(
             config["training"].get("batch_size", 8),

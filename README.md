@@ -36,3 +36,9 @@ model = get_model("esfpnet", model_type="b0", num_classes=1)
 Supported ESFPNet variants are `b0`, `b1`, `b2`, `b3`, `b4`, and `b5`.
 Pass `pretrained_path="path/to/mit_b0.pth"` if you have local pretrained MiT
 encoder weights.
+
+Download the MiT-B2 ImageNet weights used by the ESFPNet config with:
+
+```bash
+uv run python scripts/download_mit_weights.py --model_type b2
+```
