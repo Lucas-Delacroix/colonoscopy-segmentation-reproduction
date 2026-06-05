@@ -1,13 +1,3 @@
-"""
-Download upstream model repositories declared in upstream/repos.yaml.
-
-The upstream code is kept under upstream/vendor so it can run in its own
-Conda environment without contaminating the project Python 3.13 env.
-
-Example:
-    uv run python -m scripts.bootstrap_upstream_repos --force
-"""
-
 from __future__ import annotations
 
 import argparse

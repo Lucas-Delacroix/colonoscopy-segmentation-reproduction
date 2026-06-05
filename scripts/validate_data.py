@@ -1,10 +1,3 @@
-"""
-Generate quick visual artifacts from Kvasir-SEG.
-
-Run with:
-    uv run python scripts/validate_data.py --data_root data/raw/kvasir-seg
-"""
-
 import argparse
 from pathlib import Path
 

@@ -1,5 +1,3 @@
-"""Run upstream training commands declared in upstream/commands.yaml."""
-
 from __future__ import annotations
 
 import argparse

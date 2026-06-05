@@ -476,14 +476,6 @@ class ESFPDecoder(nn.Module):
 
 @register_model("esfpnet")
 class ESFPNet(BaseModel):
-    """
-    ESFPNet with a Mix Transformer encoder and ESFP decoder.
-
-    The original implementation trains with ImageNet-pretrained MiT weights.
-    Pass pretrained_path to load an encoder checkpoint when those weights are
-    available locally.
-    """
-
     def __init__(
         self,
         num_classes: int = 1,

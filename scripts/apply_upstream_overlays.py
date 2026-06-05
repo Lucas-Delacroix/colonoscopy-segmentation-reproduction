@@ -1,5 +1,3 @@
-"""Apply local overlay files into upstream/vendor repositories."""
-
 from __future__ import annotations
 
 import argparse

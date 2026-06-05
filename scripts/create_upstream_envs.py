@@ -1,5 +1,3 @@
-"""Create or update Conda environments declared in upstream/envs."""
-
 from __future__ import annotations
 
 import json

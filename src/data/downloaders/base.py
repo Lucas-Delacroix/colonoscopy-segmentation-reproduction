@@ -35,7 +35,6 @@ class DatasetDownloader(ABC):
         return self._archive_path
 
     def run(self) -> Path:
-        """Download, prepare and validate the dataset."""
         if self.is_available() and not self.force:
             self.validate()
             print(f"Dataset already available: {self.dataset_dir}")
@@ -53,7 +52,6 @@ class DatasetDownloader(ABC):
         return self.dataset_dir
 
     def download(self) -> None:
-        """Download the raw archive if needed."""
         print(f"Downloading {self.name} from {self.url}")
         print("TLS certificate verification is disabled; archive SHA256 will be checked.")
         partial_path = self.archive_path.with_suffix(self.archive_path.suffix + ".part")
@@ -101,15 +99,12 @@ class DatasetDownloader(ABC):
 
     @abstractmethod
     def prepare(self) -> None:
-        """Extract and normalize the dataset into dataset_dir."""
         ...
 
     @abstractmethod
     def validate(self) -> None:
-        """Raise a clear error if the prepared dataset is invalid."""
         ...
 
     @abstractmethod
     def is_available(self) -> bool:
-        """Return True if the prepared dataset already exists locally."""
         ...

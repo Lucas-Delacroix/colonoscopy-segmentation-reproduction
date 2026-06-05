@@ -33,7 +33,6 @@ def recall_score(pred: torch.Tensor, target: torch.Tensor, smooth: float = 1e-6)
 
 
 def compute_all_metrics(pred: torch.Tensor, target: torch.Tensor) -> dict:
-    """Receive binary prediction and groud truth mask, return all metrics"""
     return {
         "dice": dice_coefficient(pred, target),
         "iou": iou_score(pred, target),

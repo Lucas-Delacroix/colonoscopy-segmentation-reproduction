@@ -1,10 +1,3 @@
-"""
-Download and convert MiT ImageNet weights for ESFPNet.
-
-Default usage:
-    uv run python scripts/download_mit_weights.py --model_type b2
-"""
-
 import argparse
 import shutil
 import tempfile

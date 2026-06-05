@@ -13,7 +13,6 @@ class BaseDataset(Dataset, ABC):
 
     @abstractmethod
     def _load_samples(self) -> list:
-        """Return a list of tuples (image_path, mask_path)."""
         ...
 
     def __len__(self) -> int:
@@ -21,5 +20,4 @@ class BaseDataset(Dataset, ABC):
 
     @abstractmethod
     def __getitem__(self, idx: int) -> dict:
-        """Return dict with keys 'image' and 'mask' as a tensor"""
         ...

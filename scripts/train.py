@@ -1,8 +1,3 @@
-"""
-Usage:
-    uv run python -m scripts.train --config configs/models/esfpnet.yaml
-"""
-
 import argparse
 import random
 import sys

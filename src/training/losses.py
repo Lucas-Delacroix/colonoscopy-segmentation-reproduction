@@ -21,13 +21,6 @@ class DiceLoss(nn.Module):
 
 
 class BCEDiceLoss(nn.Module):
-    """
-    Combinação de Binary Cross Entropy e Dice Loss.
-    Padrão na literatura de segmentação de pólipos.
-    BCE contribui com gradientes estáveis no início do treino.
-    Dice contribui com melhor performance na métrica final.
-    """
-
     def __init__(self, bce_weight: float = 0.5, dice_weight: float = 0.5):
         super().__init__()
         self.bce_weight = bce_weight
@@ -42,12 +35,6 @@ class BCEDiceLoss(nn.Module):
 
 
 class StructureLoss(nn.Module):
-    """
-    Loss usada originalmente pelo PraNet e adotada por vários
-    modelos do paper como ESFPNet e SSFormer. Aplica pesos maiores
-    nas regiões de borda do pólipo, onde a segmentação é mais difícil.
-    """
-
     def __init__(self):
         super().__init__()
 

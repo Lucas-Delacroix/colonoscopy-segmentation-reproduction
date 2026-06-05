@@ -10,14 +10,6 @@ from data.datasets.base_dataset import BaseDataset
 
 
 class KvasirDataset(BaseDataset):
-    """
-        data/raw/kvasir-seg/
-            images/
-                *.jpg
-            masks/
-                *.jpg
-    """
-
     SPLIT_FILE = "data/splits/kvasir_split.json"
     SPLIT_SEED = 42
 

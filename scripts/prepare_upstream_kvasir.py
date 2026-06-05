@@ -1,17 +1,3 @@
-"""Prepare Kvasir-SEG layouts expected by upstream repos.
-
-Input layout:
-    data/raw/kvasir-seg/images/*.jpg
-    data/raw/kvasir-seg/masks/*.jpg
-
-Output layouts under upstream/data:
-    kvasir/{train,val,test,all}/{images,masks}
-    tganet_kvasir/{images,masks,train.txt,val.txt}
-    cascade/polyp/TrainDataset/{images,masks}
-    cascade/polyp/TestDataset/Kvasir/{images,masks}
-    mmseg_kvasir/images/{train,val,test}, masks/{train,val,test}/*.png
-"""
-
 from __future__ import annotations
 
 import argparse
