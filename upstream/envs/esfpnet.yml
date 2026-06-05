@@ -7,9 +7,9 @@ dependencies:
   - pytorch=1.11.0
   - torchvision=0.12.0
   - cudatoolkit=11.3
+  - conda-forge::mmcv-full
   - pip
   - pip:
-      - mmcv-full -f https://download.openmmlab.com/mmcv/dist/cu113/torch1.11.0/index.html
       - timm==0.5.4
       - imageio
       - scikit-image

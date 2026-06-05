@@ -7,9 +7,9 @@ dependencies:
   - pytorch=1.7.1
   - torchvision=0.8.2
   - cudatoolkit=11.0
+  - "conda-forge::mmcv-full>=1.1.4,<=1.3.0"
   - pip
   - pip:
-      - mmcv-full==1.2.7
       - timm
       - scipy
       - opencv-python
