@@ -11,12 +11,6 @@ make train MODEL=cascade
 
 Modelos em `upstream/commands.yaml`.
 
-ESFPNet local:
-
-```bash
-uv run python -m scripts.train --config configs/models/esfpnet.yaml
-```
-
 ## Gerar a Tabela 2
 
 A tabela e calculada a partir das mascaras preditas no split de teste. O formato esperado para qualquer modelo e:
