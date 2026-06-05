@@ -1,0 +1,36 @@
+repos:
+  hardnet_mseg:
+    url: https://github.com/james128333/HarDNet-MSEG
+    ref: aac1c4b5d2fdbc80bc8fe21a5377af2d202a0348
+    framework: pytorch
+    notes: Upstream HarDNet-MSEG repository. Uses a HarDNet-68 checkpoint path in the original code.
+  hardnet_dfus:
+    url: https://github.com/YuWenLo/HarDNet-DFUS
+    ref: 84dc3c0cab719dfa8e8766e925385eed3462b96a
+    framework: pytorch-mmcv
+    notes: Upstream HarDNet-DFUS polyp repository. Requirements include torch 1.10.1 and mmcv 1.5.3.
+  ssformer:
+    url: https://github.com/shiwt03/SSformer
+    ref: 0b74fbee0b2995d77521bb7fb0c99e034c4bd439
+    framework: mmsegmentation
+    notes: Upstream repo uses MMSegmentation v0.24.1 and recommends Python 3.10 with torch 1.10/1.11.
+  tganet:
+    url: https://github.com/nikhilroxtomar/TGANet
+    ref: main
+    framework: pytorch
+    notes: Upstream TGANet repository with ResNet/text-guided attention modules.
+  colonformer:
+    url: https://github.com/ducnt9907/ColonFormer
+    ref: 4ee57d9a4e62756094e193423b47bb703e139196
+    framework: mmsegmentation
+    notes: Upstream repo requires old mmcv-full/torchvision versions and MiT pretrained weights.
+  meta_polyp:
+    url: https://github.com/huyquoctrinh/MetaPolyp-CBMS2023
+    ref: main
+    framework: tensorflow-keras
+    notes: Upstream repo uses TensorFlow/Keras and keras_cv_attention_models==1.3.9.
+  cascade:
+    url: https://github.com/SLDGroup/CASCADE
+    ref: main
+    framework: pytorch-mmcv
+    notes: Upstream repo recommends Python 3.8, torch 1.11.0, torchvision 0.12.0 and mmcv-full.

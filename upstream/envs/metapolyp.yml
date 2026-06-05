@@ -1,0 +1,15 @@
+name: colonoscopy-metapolyp-upstream
+channels:
+  - conda-forge
+dependencies:
+  - python=3.9
+  - pip
+  - pip:
+      - tensorflow
+      - keras-cv-attention-models==1.3.9
+      - opencv-python
+      - albumentations
+      - pandas
+      - scikit-learn
+      - matplotlib
+      - tqdm

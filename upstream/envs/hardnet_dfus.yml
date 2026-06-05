@@ -1,0 +1,19 @@
+name: colonoscopy-hardnet-dfus-upstream
+channels:
+  - pytorch
+  - conda-forge
+dependencies:
+  - python=3.8
+  - pytorch=1.10.1
+  - torchvision=0.11.2
+  - cudatoolkit=11.3
+  - pip
+  - pip:
+      - tqdm
+      - pillow
+      - numpy
+      - opencv-python
+      - mmcv==1.5.3
+      - matplotlib
+      - einops==0.4.1
+      - timm==0.5.4

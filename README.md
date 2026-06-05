@@ -1,55 +1,17 @@
-# colonoscopy-segmentation-reproduction
-Reproduction of the paper: Application of Deep Learning Models for Semantic Segmentation of Colonoscopy Images
+# Reproducao de segmentacao em colonoscopia
 
-## Data
+Reproducao do artigo "Application of Deep Learning Models for Semantic Segmentation of Colonoscopy Images".
 
-Download and prepare Kvasir-SEG with:
-
-```bash
-uv run python scripts/download_dataset.py
-```
-
-The command downloads the archive into a temporary directory and prepares the dataset at:
-
-```text
-data/raw/kvasir-seg/
-  images/
-  masks/
-```
-
-Then validate the data loading with:
+## Uso
 
 ```bash
-uv run python scripts/validate_data.py --data_root data/raw/kvasir-seg
+make setup
+make train MODEL=cascade
 ```
 
-## Models
+Modelos em `upstream/commands.yaml`.
 
-ESFPNet is available through the model registry:
-
-```python
-from models import get_model
-
-model = get_model("esfpnet", model_type="b0", num_classes=1)
-```
-
-Supported ESFPNet variants are `b0`, `b1`, `b2`, `b3`, `b4`, and `b5`.
-Pass `pretrained_path="path/to/mit_b0.pth"` if you have local pretrained MiT
-encoder weights.
-
-Download the MiT-B2 ImageNet weights used by the ESFPNet config with:
-
-```bash
-uv run python scripts/download_mit_weights.py --model_type b2
-```
-
-Run a quick training pipeline smoke test with:
-
-```bash
-uv run python -m scripts.train --config configs/models/esfpnet.yaml --smoke_test
-```
-
-Run full ESFPNet training with:
+ESFPNet local:
 
 ```bash
 uv run python -m scripts.train --config configs/models/esfpnet.yaml
