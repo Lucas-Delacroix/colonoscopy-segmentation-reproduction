@@ -1,7 +1,7 @@
 UV ?= uv
 MODEL ?=
 
-.PHONY: setup train
+.PHONY: setup train predict table2
 
 setup:
 	@$(UV) run python scripts/download_dataset.py
@@ -13,3 +13,10 @@ setup:
 train:
 	@test -n "$(MODEL)" || (echo 'Usage: make train MODEL=cascade'; exit 1)
 	@$(UV) run python -m scripts.run_upstream $(MODEL)
+
+predict:
+	@test -n "$(MODEL)" || (echo 'Usage: make predict MODEL=cascade'; exit 1)
+	@$(UV) run python -m scripts.run_upstream $(MODEL) export
+
+table2:
+	@$(UV) run python -m scripts.evaluate_predictions

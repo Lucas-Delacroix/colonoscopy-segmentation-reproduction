@@ -17,6 +17,7 @@ COMMANDS = ROOT / "upstream" / "commands.yaml"
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser()
     parser.add_argument("model", help="Model key from upstream/commands.yaml.")
+    parser.add_argument("action", nargs="?", default="train", choices=("train", "export"))
     return parser.parse_args()
 
 
@@ -32,9 +33,9 @@ def conda_env_name(env_ref: str) -> str | None:
         return yaml.safe_load(file)["name"]
 
 
-def run_command(entry: dict) -> None:
-    cwd = ROOT / entry["cwd"]
-    command = entry["train"]
+def run_command(entry: dict, action: str) -> None:
+    cwd = ROOT / entry.get(f"{action}_cwd", entry["cwd"])
+    command = entry[action]
     env_name = conda_env_name(entry["env"])
 
     if env_name:
@@ -52,7 +53,10 @@ def main() -> None:
     commands = load_commands()
     if args.model not in commands:
         raise SystemExit(f"Unknown model '{args.model}'. Options: {list(commands)}")
-    run_command(commands[args.model])
+    entry = commands[args.model]
+    if args.action not in entry:
+        raise SystemExit(f"Action '{args.action}' is not configured for '{args.model}'.")
+    run_command(entry, args.action)
 
 
 if __name__ == "__main__":

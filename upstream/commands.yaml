@@ -7,6 +7,8 @@ commands:
       --train_path ../../data/kvasir/train
       --test_path ../../data/kvasir/val
       --train_save hardnet_mseg_kvasir
+    export_cwd: .
+    export: python -m scripts.export_predictions --model hardnet_mseg
     test_note: Use Train.py/test() or Test.py from the upstream repo against ../../data/kvasir/test.
   hardnet_dfus:
     env: upstream/envs/hardnet_dfus.yml
@@ -15,6 +17,8 @@ commands:
       python train.py --epoch 200 --batchsize 8 --trainsize 384
       --data_path ../../data/kvasir/all --dataratio 0.8 --seed 42
       --name hardnet_dfus_kvasir --augmentation
+    export_cwd: .
+    export: python -m scripts.export_predictions --model hardnet_dfus
     test_note: The upstream script performs its own train/validation split from --data_path.
   ssformer:
     env: upstream/envs/ssformer.yml
@@ -24,10 +28,14 @@ commands:
         target: configs/SSformer/kvasir_binary.py
     train: python tools/train.py configs/SSformer/kvasir_binary.py
     test: python tools/test.py configs/SSformer/kvasir_binary.py work_dirs/kvasir_binary/latest.pth --eval mIoU
+    export_cwd: .
+    export: python -m scripts.export_predictions --model ssformer
   tganet:
     env: upstream/envs/tganet.yml
     cwd: upstream/vendor/tganet
     train: python train.py
+    export_cwd: .
+    export: python -m scripts.export_predictions --model tganet
     patch_note: Upstream train.py has a hard-coded dataset path; set it to ../../data/tganet_kvasir before running.
   colonformer:
     env: upstream/envs/colonformer.yml
@@ -39,14 +47,19 @@ commands:
     test: >-
       python test.py --weight ./snapshots/ColonFormerB3_Kvasir/last.pth
       --test_path ../../data/kvasir/test
+    export_cwd: .
+    export: python -m scripts.export_predictions --model colonformer
   esfpnet:
     env: pyproject.toml
     cwd: .
     train: uv run python -m scripts.train --config configs/models/esfpnet.yaml
+    export: uv run python -m scripts.export_predictions --model esfpnet
   meta_polyp:
     env: upstream/envs/metapolyp.yml
     cwd: upstream/vendor/meta_polyp
     train: python train.py
+    export_cwd: .
+    export: python -m scripts.export_predictions --model meta_polyp
     patch_note: Upstream train.py uses repo-specific config paths; point them at ../../data/kvasir or the PraNet-style data used in the paper.
   cascade:
     env: upstream/envs/cascade.yml
@@ -56,3 +69,5 @@ commands:
       --train_path ../../data/cascade/polyp/TrainDataset
       --test_path ../../data/cascade/polyp/TestDataset
       --train_save ./model_pth/PolypPVT-CASCADE-Kvasir/
+    export_cwd: .
+    export: python -m scripts.export_predictions --model cascade
