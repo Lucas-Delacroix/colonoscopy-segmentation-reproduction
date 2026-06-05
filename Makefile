@@ -5,6 +5,7 @@ MODEL ?=
 
 setup:
 	@$(UV) run python scripts/download_dataset.py
+	@$(UV) run python scripts/download_mit_weights.py
 	@$(UV) run python -m scripts.prepare_upstream_kvasir --force
 	@$(UV) run python -m scripts.bootstrap_upstream_repos --force
 	@$(UV) run python -m scripts.apply_upstream_overlays
