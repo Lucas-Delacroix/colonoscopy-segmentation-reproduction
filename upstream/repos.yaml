@@ -19,7 +19,7 @@ repos:
     ref: main
     framework: pytorch
     notes: Upstream TGANet repository with ResNet/text-guided attention modules.
-  colonformer:
+  _colonformer:
     url: https://github.com/ducnt9907/ColonFormer
     ref: 4ee57d9a4e62756094e193423b47bb703e139196
     framework: mmsegmentation

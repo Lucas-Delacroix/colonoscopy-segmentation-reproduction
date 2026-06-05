@@ -41,7 +41,7 @@ commands:
     train: python train.py
     export_cwd: .
     export: python -m scripts.export_predictions --model tganet
-  colonformer:
+  _colonformer:
     env: upstream/envs/colonformer.yml
     cwd: upstream/vendor/colonformer
     overlay:
