@@ -40,7 +40,7 @@ class Trainer:
         self.checkpoint_dir = Path(config.get("checkpoint_dir", "checkpoints"))
         self.checkpoint_dir.mkdir(parents=True, exist_ok=True)
 
-        self.best_dice = 0.0
+        self.best_val_loss = float("inf")
         self.history = []
 
     def _build_optimizer(self) -> torch.optim.Optimizer:
@@ -167,7 +167,7 @@ class Trainer:
             },
             path,
         )
-        print(f"  Checkpoint saved (epoch {epoch}, DICE={metrics['dice']:.4f})")
+        print(f"  Checkpoint saved (epoch {epoch}, loss={metrics['loss']:.6f})")
 
     def _log_epoch(self, epoch: int, epochs: int, train: dict, val: dict, elapsed: float):
         print(
@@ -209,10 +209,10 @@ class Trainer:
             if epoch % log_every == 0:
                 self._log_epoch(epoch, epochs, train_metrics, val_metrics, elapsed)
 
-            if val_metrics["dice"] > self.best_dice:
-                self.best_dice = val_metrics["dice"]
+            if val_metrics["loss"] < self.best_val_loss:
+                self.best_val_loss = val_metrics["loss"]
                 self._save_checkpoint(epoch, val_metrics)
 
         print("=" * 70)
-        print(f"Training completed. Best validation DICE: {self.best_dice:.4f}")
+        print(f"Training completed. Best validation loss: {self.best_val_loss:.6f}")
         return self.history
