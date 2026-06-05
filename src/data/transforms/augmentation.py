@@ -10,7 +10,7 @@ def get_train_transforms(image_size: int = 352) -> A.Compose:
         A.ShiftScaleRotate(
             shift_limit=0.1,
             scale_limit=0.2,
-            rotate_limit=0,
+            rotate_limit=10,
             p=0.5,
         ),
         A.Perspective(scale=(0.05, 0.1), p=0.5),
