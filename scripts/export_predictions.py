@@ -275,46 +275,6 @@ def export_ssformer(args: argparse.Namespace, samples: list[Path], output_dir: P
         save_mask(output_dir / f"{image_path.stem}.png", pred.astype(np.float32), 0.5)
 
 
-def export_esfpnet(args: argparse.Namespace, samples: list[Path], output_dir: Path) -> None:
-    import torch
-    import torch.nn.functional as F
-
-    from data.transforms.augmentation import get_val_transforms
-    from models import get_model
-    from scripts.train import load_config, set_seed
-
-    config = load_config("configs/models/esfpnet.yaml")
-    set_seed(config.get("seed", 42))
-
-    checkpoint = Path(args.checkpoint or ROOT / "checkpoints" / config["logging"]["run_name"] / "best.pth")
-    device = torch_device(args.device)
-    model_config = config["model"]
-    model = get_model(
-        model_config["name"],
-        num_classes=model_config["num_classes"],
-        model_type=model_config.get("model_type", "b2"),
-        pretrained_path=model_config.get("pretrained_path"),
-    )
-    state = torch.load(checkpoint, map_location=device)
-    model.load_state_dict(state["model_state_dict"])
-    model.to(device)
-    model.eval()
-    transform = get_val_transforms(config["data"]["image_size"])
-
-    with torch.no_grad():
-        for image_path in samples:
-            image = cv2.imread(str(image_path))
-            shape = image.shape[:2]
-            image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
-            mask = np.zeros(shape, dtype=np.float32)
-            tensor = transform(image=image, mask=mask)["image"].unsqueeze(0).to(device)
-            pred = model(tensor)
-            if isinstance(pred, (list, tuple)):
-                pred = pred[0]
-            pred = F.interpolate(pred, size=shape, mode="bilinear", align_corners=False)
-            pred = torch.sigmoid(pred).cpu().numpy().squeeze()
-            save_mask(output_dir / f"{image_path.stem}.png", pred, args.threshold)
-
 
 EXPORTERS = {
     "hardnet_mseg": export_hardnet_mseg,
@@ -322,7 +282,6 @@ EXPORTERS = {
     "ssformer": export_ssformer,
     "tganet": export_tganet,
     "colonformer": export_colonformer,
-    "esfpnet": export_esfpnet,
     "meta_polyp": export_meta_polyp,
     "cascade": export_cascade,
 }

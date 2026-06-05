@@ -6,7 +6,15 @@ from urllib.request import Request, urlopen
 
 import torch
 
-from models.esfpnet import MIT_CONFIGS
+
+MIT_DEPTHS = {
+    "b0": [2, 2, 2, 2],
+    "b1": [2, 2, 2, 2],
+    "b2": [3, 4, 6, 3],
+    "b3": [3, 4, 18, 3],
+    "b4": [3, 8, 27, 3],
+    "b5": [3, 6, 40, 3],
+}
 
 
 DEFAULT_HF_URL = "https://huggingface.co/nvidia/mit-{model_type}/resolve/main/pytorch_model.bin"
@@ -17,7 +25,7 @@ def parse_args():
     parser.add_argument(
         "--model_type",
         default="b2",
-        choices=sorted(MIT_CONFIGS.keys()),
+        choices=sorted(MIT_DEPTHS.keys()),
         help="MiT variant to download.",
     )
     parser.add_argument(
@@ -71,7 +79,7 @@ def convert_hf_segformer_to_mit(
     state_dict: dict[str, torch.Tensor],
     model_type: str,
 ) -> dict[str, torch.Tensor]:
-    cfg = MIT_CONFIGS[model_type]
+    depths = MIT_DEPTHS[model_type]
     converted = {}
 
     def copy(source: str, target: str) -> None:
@@ -82,7 +90,7 @@ def convert_hf_segformer_to_mit(
         if source_a in state_dict and source_b in state_dict:
             converted[target] = torch.cat([state_dict[source_a], state_dict[source_b]], dim=0)
 
-    for stage_idx, depth in enumerate(cfg["depths"], start=1):
+    for stage_idx, depth in enumerate(depths, start=1):
         hf_stage = stage_idx - 1
         hf_patch = f"segformer.encoder.patch_embeddings.{hf_stage}"
         mit_patch = f"patch_embed{stage_idx}"
