@@ -10,7 +10,7 @@ from optimizers.lion_opt import Lion
 
 os.environ["CUDA_VISIBLE_DEVICES"] = "0"
 
-img_size = 352
+img_size = 256
 BATCH_SIZE = 8
 SEED = 42
 save_path = "best_model.h5"
