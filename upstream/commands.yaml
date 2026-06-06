@@ -86,6 +86,15 @@ commands:
   cascade:
     env: upstream/envs/cascade.yml
     cwd: upstream/vendor/cascade
+    overlay:
+      - source: ../../../weights/pvt_v2_b2.pth
+        target: pretrained_pth/pvt/pvt_v2_b2.pth
+      - source: ../../overlays/cascade/utils.py
+        target: utils/utils.py
+      - source: ../../overlays/cascade/train_polyp.py
+        target: train_polyp.py
+      - source: ../../overlays/cascade/dataloader.py
+        target: utils/dataloader.py
     train: >-
       python -W ignore train_polyp.py --epoch 100 --batchsize 16 --img_size 352
       --train_path ../../data/cascade/polyp/TrainDataset

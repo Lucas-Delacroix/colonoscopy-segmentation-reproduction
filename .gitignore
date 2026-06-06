@@ -157,6 +157,7 @@ ENV/
 env.bak/
 venv.bak/
 upstream/data/
+upstream/envs/condaenv.*.requirements.txt
 upstream/vendor/
 
 # Spyder project settings

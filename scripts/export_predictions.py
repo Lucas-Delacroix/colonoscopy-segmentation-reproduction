@@ -275,6 +275,41 @@ def export_ssformer(args: argparse.Namespace, samples: list[Path], output_dir: P
         save_mask(output_dir / f"{image_path.stem}.png", pred.astype(np.float32), 0.5)
 
 
+def export_esfpnet(args: argparse.Namespace, samples: list[Path], output_dir: Path) -> None:
+    import torch
+    import torch.nn.functional as F
+    from PIL import Image
+    from torchvision import transforms
+
+    from models import get_model
+
+    checkpoint = Path(args.checkpoint or ROOT / "checkpoints/esfpnet_b2_kvasir/best.pth")
+    device = torch_device(args.device)
+    model = get_model("esfpnet", num_classes=1, model_type="b2")
+    state = torch.load(checkpoint, map_location=device)
+    if isinstance(state, dict) and "model_state_dict" in state:
+        state = state["model_state_dict"]
+    model.load_state_dict(state)
+    model.to(device)
+    model.eval()
+
+    transform = transforms.Compose([
+        transforms.Resize((352, 352)),
+        transforms.ToTensor(),
+        transforms.Normalize([0.485, 0.456, 0.406], [0.229, 0.224, 0.225]),
+    ])
+
+    with torch.no_grad():
+        for image_path in samples:
+            image = Image.open(image_path).convert("RGB")
+            shape = image.size[1], image.size[0]
+            tensor = transform(image).unsqueeze(0).to(device)
+            pred = model(tensor)
+            pred = F.interpolate(pred, size=shape, mode="bilinear", align_corners=False)
+            pred = torch.sigmoid(pred).cpu().numpy().squeeze()
+            save_mask(output_dir / f"{image_path.stem}.png", pred, args.threshold)
+
+
 
 EXPORTERS = {
     "hardnet_mseg": export_hardnet_mseg,
@@ -282,6 +317,7 @@ EXPORTERS = {
     "ssformer": export_ssformer,
     "tganet": export_tganet,
     "colonformer": export_colonformer,
+    "esfpnet": export_esfpnet,
     "meta_polyp": export_meta_polyp,
     "cascade": export_cascade,
 }
