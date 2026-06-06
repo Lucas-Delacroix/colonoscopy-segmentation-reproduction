@@ -17,6 +17,18 @@ from utils.utils import clip_gradient, adjust_lr, AvgMeter
 
 
 DEVICE = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+EVAL_DATASETS = ['CVC-300', 'CVC-ClinicDB', 'Kvasir', 'CVC-ColonDB', 'ETIS-LaribPolypDB']
+
+
+def available_test_datasets(test_path):
+    datasets = []
+    for dataset in EVAL_DATASETS:
+        data_path = os.path.join(test_path, dataset)
+        image_root = os.path.join(data_path, 'images')
+        gt_root = os.path.join(data_path, 'masks')
+        if os.path.isdir(image_root) and os.path.isdir(gt_root) and os.listdir(gt_root):
+            datasets.append(dataset)
+    return datasets
 
         
 def structure_loss(pred, mask):
@@ -74,6 +86,7 @@ def train(train_loader, model, optimizer, epoch, test_path, model_name = 'PVT-CA
     global best
     size_rates = [0.75, 1, 1.25] 
     loss_record = AvgMeter()
+    print(f"{datetime.now()} Epoch [{epoch:03d}/{opt.epoch:03d}] started; steps: {total_step}", flush=True)
     for i, pack in enumerate(train_loader, start=1):
         for rate in size_rates:
             optimizer.zero_grad()
@@ -113,7 +126,7 @@ def train(train_loader, model, optimizer, epoch, test_path, model_name = 'PVT-CA
             print('{} Epoch [{:03d}/{:03d}], Step [{:04d}/{:04d}], '
                   ' loss: {:0.4f}]'.
                   format(datetime.now(), epoch, opt.epoch, i, total_step,
-                         loss_record.show()))
+                         loss_record.show()), flush=True)
     # save model 
     save_path = (opt.train_save)
     if not os.path.exists(save_path):
@@ -124,20 +137,24 @@ def train(train_loader, model, optimizer, epoch, test_path, model_name = 'PVT-CA
     global dict_plot
    
     if (epoch + 1) % 1 == 0:
-    	total_dice = 0
-    	total_images = 0
-    	for dataset in ['CVC-300', 'CVC-ClinicDB', 'Kvasir', 'CVC-ColonDB', 'ETIS-LaribPolypDB']:
-    	    dataset_dice, n_images = test(model, test_path, dataset)
-    	    total_dice += (n_images*dataset_dice)
-    	    total_images += n_images
-    	    logging.info('epoch: {}, dataset: {}, dice: {}'.format(epoch, dataset, dataset_dice))
-    	    print(dataset, ': ', dataset_dice)
-    	    dict_plot[dataset].append(dataset_dice)
-    	meandice = total_dice/total_images
-    	dict_plot['test'].append(meandice)
-    	print('Validation dice score: {}'.format(meandice))
-    	logging.info('Validation dice score: {}'.format(meandice))
-    	if meandice > best:
+        total_dice = 0
+        total_images = 0
+        datasets = available_test_datasets(test_path)
+        if not datasets:
+            raise FileNotFoundError(f"No validation datasets found under {test_path}")
+        print(f"Validating on: {', '.join(datasets)}", flush=True)
+        for dataset in datasets:
+            dataset_dice, n_images = test(model, test_path, dataset)
+            total_dice += (n_images*dataset_dice)
+            total_images += n_images
+            logging.info('epoch: {}, dataset: {}, dice: {}'.format(epoch, dataset, dataset_dice))
+            print(dataset, ': ', dataset_dice, flush=True)
+            dict_plot[dataset].append(dataset_dice)
+        meandice = total_dice/total_images
+        dict_plot['test'].append(meandice)
+        print('Validation dice score: {}'.format(meandice), flush=True)
+        logging.info('Validation dice score: {}'.format(meandice))
+        if meandice > best:
             print('##################### Dice score improved from {} to {}'.format(best, meandice))
             logging.info('##################### Dice score improved from {} to {}'.format(best, meandice))
             best = meandice
@@ -198,7 +215,7 @@ if __name__ == '__main__':
     # ---- build models ----
     #torch.cuda.set_device(2)  # set your gpu device
     model = PVT_CASCADE()
-    print(f"Using device: {DEVICE}")
+    print(f"Using device: {DEVICE}", flush=True)
     model.to(DEVICE)
 	
     best = 0
@@ -218,7 +235,7 @@ if __name__ == '__main__':
                               pin_memory=DEVICE.type == "cuda", augmentation=opt.augmentation)
     total_step = len(train_loader)
 
-    print("#" * 20, "Start Training", "#" * 20)
+    print("#" * 20, "Start Training", "#" * 20, flush=True)
 
     for epoch in range(1, opt.epoch):
         adjust_lr(optimizer, opt.lr, epoch, opt.decay_rate, opt.decay_epoch)

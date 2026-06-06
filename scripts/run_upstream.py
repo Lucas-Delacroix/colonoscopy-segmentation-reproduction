@@ -37,7 +37,7 @@ def run_command(entry: dict, action: str) -> None:
     env_name = conda_env_name(entry["env"])
 
     if env_name:
-        resolved = ["conda", "run", "-n", env_name, "bash", "-lc", command]
+        resolved = ["conda", "run", "-n", env_name, "--no-capture-output", "bash", "-lc", command]
     else:
         resolved = ["bash", "-lc", command]
 
