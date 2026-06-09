@@ -12,6 +12,8 @@ CONDA_SOLVER_ARG = $(if $(CONDA_SOLVER),--solver $(CONDA_SOLVER),)
 
 setup:
 	@$(UV) run python scripts/download_dataset.py
+	@$(UV) run python scripts/download_hardnet_weights.py
+	@$(UV) run python scripts/download_kingnet_weights.py
 	@$(UV) run python scripts/download_mit_weights.py
 	@$(UV) run python scripts/download_pvt_weights.py
 	@$(UV) run python -m scripts.prepare_upstream_kvasir --force

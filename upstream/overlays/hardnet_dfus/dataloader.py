@@ -15,7 +15,7 @@ from pathlib import Path
 from PIL import Image
 
 
-_SPLIT_FILE = Path(__file__).resolve().parents[3] / "data" / "splits" / "kvasir_split.json"
+_SPLIT_FILE = Path(__file__).resolve().parents[4] / "data" / "splits" / "kvasir_split.json"
 
 
 def calculatemns(img_list, size, rect):

@@ -12,6 +12,9 @@ dependencies:
       - tqdm
       - pillow
       - numpy
+      - scipy
+      - scikit-image
+      - scikit-learn
       - opencv-python
       - mmcv==1.5.3
       - matplotlib

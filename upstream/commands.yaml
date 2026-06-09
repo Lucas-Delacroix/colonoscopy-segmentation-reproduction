@@ -2,6 +2,19 @@ commands:
   hardnet_mseg:
     env: upstream/envs/hardnet_mseg.yml
     cwd: upstream/vendor/hardnet_mseg
+    overlay:
+      - source: ../../../weights/hardnet68.pth
+        target: lib/hardnet68.pth
+    replace:
+      - target: lib/hardnet_68.py
+        old: "weights = torch.load('/home/james128333/PraNet/lib/hardnet68.pth')"
+        new: "weights = torch.load(os.path.join(os.path.dirname(__file__), 'hardnet68.pth'), map_location='cpu')"
+      - target: utils/dataloader.py
+        old: "self.gts = [gt_root + f for f in os.listdir(gt_root) if f.endswith('.png')]"
+        new: "self.gts = [gt_root + f for f in os.listdir(gt_root) if f.endswith(('.jpg', '.jpeg', '.png'))]"
+      - target: utils/dataloader.py
+        old: "self.gts = [gt_root + f for f in os.listdir(gt_root) if f.endswith('.tif') or f.endswith('.png')]"
+        new: "self.gts = [gt_root + f for f in os.listdir(gt_root) if f.endswith(('.jpg', '.jpeg', '.tif', '.png'))]"
     train: >-
       python Train.py --epoch 200 --batchsize 8 --trainsize 352
       --train_path ../../data/kvasir/train
@@ -14,8 +27,16 @@ commands:
     env: upstream/envs/hardnet_dfus.yml
     cwd: upstream/vendor/hardnet_dfus
     overlay:
+      - source: ../../../weights/hardnet68.pth
+        target: lib/hardnet68.pth
+      - source: ../../../weights/kingnet53.pth
+        target: weights/kingnet53.pth
       - source: ../../overlays/hardnet_dfus/dataloader.py
         target: utils/dataloader.py
+    replace:
+      - target: lib/hardnet_68.py
+        old: "weights = torch.load('/work/s109062605/hardnet68.pth')"
+        new: "weights = torch.load(os.path.join(os.path.dirname(__file__), 'hardnet68.pth'), map_location='cpu')"
     train: >-
       python train.py --epoch 200 --batchsize 8 --trainsize 384
       --data_path ../../data/kvasir/all --dataratio 0.8 --seed 42

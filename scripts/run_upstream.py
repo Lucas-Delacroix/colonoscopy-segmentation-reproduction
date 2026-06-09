@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import argparse
+import os
 import shlex
 import subprocess
 from pathlib import Path
@@ -31,19 +32,30 @@ def conda_env_name(env_ref: str) -> str | None:
         return yaml.safe_load(file)["name"]
 
 
+def clean_parent_python_env() -> dict[str, str]:
+    env = os.environ.copy()
+    virtual_env = env.pop("VIRTUAL_ENV", None)
+    if virtual_env:
+        virtual_env_bin = str(Path(virtual_env) / "bin")
+        path_parts = env.get("PATH", "").split(os.pathsep)
+        env["PATH"] = os.pathsep.join(part for part in path_parts if part != virtual_env_bin)
+    return env
+
+
 def run_command(entry: dict, action: str) -> None:
     cwd = ROOT / entry.get(f"{action}_cwd", entry["cwd"])
     command = entry[action]
     env_name = conda_env_name(entry["env"])
+    command_args = shlex.split(command)
 
     if env_name:
-        resolved = ["conda", "run", "-n", env_name, "--no-capture-output", "bash", "-lc", command]
+        resolved = ["conda", "run", "-n", env_name, "--no-capture-output", *command_args]
     else:
-        resolved = ["bash", "-lc", command]
+        resolved = command_args
 
     print(f"cwd: {cwd}")
     print("+ " + shlex.join(resolved), flush=True)
-    subprocess.run(resolved, cwd=cwd, check=True)
+    subprocess.run(resolved, cwd=cwd, env=clean_parent_python_env(), check=True)
 
 
 def main() -> None:
