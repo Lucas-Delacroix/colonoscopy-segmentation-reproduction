@@ -22,7 +22,7 @@ train_pipeline = [
          brightness_delta=51,
          contrast_range=(0.8, 1.2),
          saturation_range=(0.8, 1.2),
-         hue_delta=0),
+         hue_delta=1),
     dict(type='Normalize', **img_norm_cfg),
     dict(type='Pad', size=crop_size, pad_val=0, seg_pad_val=0),
     dict(type='DefaultFormatBundle'),
@@ -150,6 +150,12 @@ lr_config = dict(
     by_epoch=False,
 )
 runner = dict(type='IterBasedRunner', max_iters=20000)
+log_config = dict(
+    interval=50,
+    hooks=[
+        dict(type='TextLoggerHook', by_epoch=False),
+    ],
+)
 checkpoint_config = dict(by_epoch=False, interval=2000)
 evaluation = dict(interval=2000, metric='mIoU', pre_eval=True)
 work_dir = './work_dirs/kvasir_binary'

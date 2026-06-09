@@ -16,10 +16,12 @@ setup:
 	@$(UV) run python scripts/download_kingnet_weights.py
 	@$(UV) run python scripts/download_mit_weights.py
 	@$(UV) run python scripts/download_pvt_weights.py
+	@$(UV) run python scripts/download_swin_weights.py
 	@$(UV) run python -m scripts.prepare_upstream_kvasir --force
 	@$(UV) run python -m scripts.bootstrap_upstream_repos --force $(MODEL_ARG)
 	@$(UV) run python -m scripts.apply_upstream_overlays $(MODEL_ARG)
 	@$(UV) run python -m scripts.create_upstream_envs $(MODEL_ARG) $(RECREATE_ENVS_ARG) $(UPDATE_ENVS_ARG) $(CONDA_SOLVER_ARG)
+	@$(UV) run python scripts/prepare_ssformer_weights.py $(MODEL_ARG)
 
 train:
 	@test -n "$(MODEL)" || (echo 'Usage: make train MODEL=cascade'; exit 1)
