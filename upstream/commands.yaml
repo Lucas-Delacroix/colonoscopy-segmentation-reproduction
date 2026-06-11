@@ -59,6 +59,10 @@ commands:
     overlay:
       - source: ../../overlays/tganet/train.py
         target: train.py
+    replace:
+      - target: resnet.py
+        old: "from torchvision.models.utils import load_state_dict_from_url"
+        new: "from torch.hub import load_state_dict_from_url"
     train: python train.py
     export_cwd: .
     export: python -m scripts.export_predictions --model tganet
