@@ -149,13 +149,13 @@ lr_config = dict(
     min_lr=0.0,
     by_epoch=False,
 )
-runner = dict(type='IterBasedRunner', max_iters=20000)
+runner = dict(type='EpochBasedRunner', max_epochs=200)
 log_config = dict(
     interval=50,
     hooks=[
         dict(type='TextLoggerHook', by_epoch=False),
     ],
 )
-checkpoint_config = dict(by_epoch=False, interval=2000)
-evaluation = dict(interval=2000, metric='mIoU', pre_eval=True)
+checkpoint_config = dict(by_epoch=True, interval=1, max_keep_ckpts=3)
+evaluation = dict(interval=1, metric='mIoU', pre_eval=True, save_best='mIoU', rule='greater')
 work_dir = './work_dirs/kvasir_binary'

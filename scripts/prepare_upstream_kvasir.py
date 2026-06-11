@@ -112,7 +112,7 @@ def main() -> None:
     write_tganet_names(samples, split["val"], tganet_root, "val.txt")
 
     mirror_split(samples, split["train"], output / "cascade" / "polyp" / "TrainDataset", args.copy)
-    mirror_split(samples, split["test"], output / "cascade" / "polyp" / "TestDataset" / "Kvasir", args.copy)
+    mirror_split(samples, split["val"], output / "cascade" / "polyp" / "TestDataset" / "Kvasir", args.copy)
 
     mmseg_root = output / "mmseg_kvasir"
     for split_name, indices in split.items():

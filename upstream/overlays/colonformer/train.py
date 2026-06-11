@@ -188,6 +188,40 @@ def train(train_loader, model, optimizer, epoch, lr_scheduler, args):
     }
     torch.save(checkpoint, ckpt_path)
 
+
+def evaluate(val_loader, model, args):
+    model.eval()
+    loss_record = AvgMeter()
+    dice, iou = AvgMeter(), AvgMeter()
+    with torch.no_grad():
+        for images, gts in val_loader:
+            images = images.cuda()
+            gts = gts.cuda()
+            map4, map3, map2, map1 = model(images)
+            trainsize = args.init_trainsize
+            map1 = F.upsample(map1, size=(trainsize, trainsize), mode='bilinear', align_corners=True)
+            map2 = F.upsample(map2, size=(trainsize, trainsize), mode='bilinear', align_corners=True)
+            map3 = F.upsample(map3, size=(trainsize, trainsize), mode='bilinear', align_corners=True)
+            map4 = F.upsample(map4, size=(trainsize, trainsize), mode='bilinear', align_corners=True)
+            loss = structure_loss(map1, gts) + structure_loss(map2, gts) + structure_loss(map3, gts) + structure_loss(map4, gts)
+            dice_score = dice_m(map4, gts)
+            iou_score = iou_m(map4, gts)
+            loss_record.update(loss.data, 1)
+            dice.update(dice_score.data, 1)
+            iou.update(iou_score.data, 1)
+    model.train()
+    return loss_record.show(), dice.show(), iou.show()
+
+
+def save_checkpoint(path, epoch, model, optimizer, lr_scheduler):
+    checkpoint = {
+        'epoch': epoch + 1,
+        'state_dict': model.state_dict(),
+        'optimizer': optimizer.state_dict(),
+        'scheduler': lr_scheduler.state_dict()
+    }
+    torch.save(checkpoint, path)
+
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     parser.add_argument('--num_epochs', type=int, default=20)
@@ -197,6 +231,7 @@ if __name__ == '__main__':
     parser.add_argument('--init_trainsize', type=int, default=352)
     parser.add_argument('--clip', type=float, default=0.5)
     parser.add_argument('--train_path', type=str, default='./data/TrainDataset')
+    parser.add_argument('--val_path', type=str, default='./data/ValDataset')
     parser.add_argument('--train_save', type=str, default='ConlonFormerB3')
     parser.add_argument('--resume_path', type=str, default='')
     args = parser.parse_args()
@@ -218,6 +253,16 @@ if __name__ == '__main__':
         shuffle=True,
         pin_memory=True,
         drop_last=True
+    )
+    val_img_paths = sorted(glob('{}/images/*'.format(args.val_path)))
+    val_mask_paths = sorted(glob('{}/masks/*'.format(args.val_path)))
+    val_transform = A.Compose([A.Resize(args.init_trainsize, args.init_trainsize)])
+    val_dataset = Dataset(val_img_paths, val_mask_paths, transform=val_transform)
+    val_loader = torch.utils.data.DataLoader(
+        val_dataset,
+        batch_size=1,
+        shuffle=False,
+        pin_memory=True
     )
 
     total_step = len(train_loader)
@@ -259,5 +304,14 @@ if __name__ == '__main__':
         optimizer.load_state_dict(checkpoint['optimizer'])
 
     print("#"*20, "Start Training", "#"*20)
+    best_val_loss = float("inf")
     for epoch in range(start_epoch, args.num_epochs+1):
         train(train_loader, model, optimizer, epoch, lr_scheduler, args)
+        val_loss, val_dice, val_iou = evaluate(val_loader, model, args)
+        print('{} Validation Epoch [{:03d}/{:03d}], [loss: {:0.4f}, dice: {:0.4f}, iou: {:0.4f}]'.
+              format(datetime.now(), epoch, args.num_epochs, val_loss, val_dice, val_iou))
+        if val_loss < best_val_loss:
+            best_val_loss = val_loss
+            ckpt_path = save_path + 'best.pth'
+            print('[Saving Best Checkpoint:]', ckpt_path)
+            save_checkpoint(ckpt_path, epoch, model, optimizer, lr_scheduler)

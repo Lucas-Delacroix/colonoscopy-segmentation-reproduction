@@ -180,7 +180,7 @@ def export_colonformer(args: argparse.Namespace, samples: list[Path], output_dir
     add_vendor("colonformer")
     from mmseg.models.segmentors import ColonFormer
 
-    checkpoint = Path(args.checkpoint or VENDOR / "colonformer/snapshots/ColonFormerB3_Kvasir/last.pth")
+    checkpoint = Path(args.checkpoint or VENDOR / "colonformer/snapshots/ColonFormerB3_Kvasir/best.pth")
     device = torch_device(args.device)
     model = ColonFormer(
         backbone=dict(type="mit_b3", style="pytorch"),

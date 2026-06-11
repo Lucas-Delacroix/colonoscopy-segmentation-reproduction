@@ -6,6 +6,24 @@ commands:
       - source: ../../../weights/hardnet68.pth
         target: lib/hardnet68.pth
     replace:
+      - target: Train.py
+        old: "    best = 0\n    if (epoch+1) % 1 == 0:"
+        new: "    global best\n    if (epoch + 1) % 1 == 0:"
+      - target: Train.py
+        old: "    for epoch in range(1, opt.epoch):"
+        new: "    best = float(\"inf\")\n\n    for epoch in range(1, opt.epoch + 1):"
+      - target: Train.py
+        old: "    b=0.0\n    for i in range(100):"
+        new: "    b=0.0\n    val_loss = 0.0\n    num1 = len(os.listdir(gt_root))\n    for i in range(num1):"
+      - target: Train.py
+        old: "        res = F.upsample(res, size=gt.shape, mode='bilinear', align_corners=False)\n        res = res.sigmoid().data.cpu().numpy().squeeze()"
+        new: "        res = F.upsample(res, size=gt.shape, mode='bilinear', align_corners=False)\n        gt_tensor = torch.from_numpy(gt).unsqueeze(0).unsqueeze(0).cuda()\n        val_loss += float(structure_loss(res, gt_tensor).detach().cpu())\n        res = res.sigmoid().data.cpu().numpy().squeeze()"
+      - target: Train.py
+        old: "    return b/100"
+        new: "    return b / num1, val_loss / num1"
+      - target: Train.py
+        old: "    global best\n    if (epoch + 1) % 1 == 0:\n        meandice = test(model,test_path)\n        if meandice > best:\n            best = meandice\n            torch.save(model.state_dict(), save_path + 'HarD-MSEG-best.pth' )\n            print('[Saving Snapshot:]', save_path + 'HarD-MSEG-best.pth',meandice)"
+        new: "    global best\n    if (epoch + 1) % 1 == 0:\n        meandice, val_loss = test(model, test_path)\n        if val_loss < best:\n            best = val_loss\n            torch.save(model.state_dict(), save_path + 'HarD-MSEG-best.pth' )\n            print('[Saving Snapshot:]', save_path + 'HarD-MSEG-best.pth', val_loss, meandice)"
       - target: lib/hardnet_68.py
         old: "weights = torch.load('/home/james128333/PraNet/lib/hardnet68.pth')"
         new: "weights = torch.load(os.path.join(os.path.dirname(__file__), 'hardnet68.pth'), map_location='cpu')"
@@ -37,6 +55,15 @@ commands:
       - target: lib/hardnet_68.py
         old: "weights = torch.load('/work/s109062605/hardnet68.pth')"
         new: "weights = torch.load(os.path.join(os.path.dirname(__file__), 'hardnet68.pth'), map_location='cpu')"
+      - target: train.py
+        old: "        best = 0\n        rec = np.zeros((6, opt.epoch))"
+        new: "        best = float(\"inf\")\n        rec = np.zeros((6, opt.epoch))"
+      - target: train.py
+        old: "            if meandice > best:\n                best = meandice\n                if best > 0.8:\n                    pthname = os.path.join(save_path, '%s_%g,%g_best_%g.pth'%(opt.name, k+1, opt.kfold, int(best*10000)))\n                    torch.save(model.state_dict(),  pthname)\n                    print('[Saving Best Weight]', pthname)"
+        new: "            if val_loss < best:\n                best = val_loss\n                pthname = os.path.join(save_path, '%s_%g,%g_best_%g.pth'%(opt.name, k+1, opt.kfold, int(best*10000)))\n                torch.save(model.state_dict(),  pthname)\n                print('[Saving Best Weight]', pthname)"
+      - target: train.py
+        old: "            logging.info('Epoch: %g,mDice: %g,Best mDice: %g,loss: %g,loss2: %g,loss3: %g,lr: %g'%(epoch, meandice, best, loss, deep1, deep2, scheduler.get_last_lr()[0]))\n            print(\"best meandice: \", best)"
+        new: "            logging.info('Epoch: %g,mDice: %g,Best val_loss: %g,loss: %g,loss2: %g,loss3: %g,lr: %g'%(epoch, meandice, best, loss, deep1, deep2, scheduler.get_last_lr()[0]))\n            print(\"best val_loss: \", best)"
     train: >-
       python train.py --epoch 200 --batchsize 8 --trainsize 384
       --data_path ../../data/kvasir/all --dataratio 0.8 --seed 42
@@ -66,18 +93,19 @@ commands:
     train: python train.py
     export_cwd: .
     export: python -m scripts.export_predictions --model tganet
-  _colonformer:
+  colonformer:
     env: upstream/envs/colonformer.yml
     cwd: upstream/vendor/colonformer
     overlay:
       - source: ../../overlays/colonformer/train.py
         target: train.py
     train: >-
-      python train.py --epoch 30 --batchsize 8
+      python train.py --num_epochs 30 --batchsize 8 --init_trainsize 352
       --train_path ../../data/kvasir/train
+      --val_path ../../data/kvasir/val
       --train_save ColonFormerB3_Kvasir
     test: >-
-      python test.py --weight ./snapshots/ColonFormerB3_Kvasir/last.pth
+      python test.py --weight ./snapshots/ColonFormerB3_Kvasir/best.pth
       --test_path ../../data/kvasir/test
     export_cwd: .
     export: python -m scripts.export_predictions --model colonformer

@@ -53,6 +53,7 @@ def test(model, path, dataset):
     num1 = len(os.listdir(gt_root))
     test_loader = test_dataset(image_root, gt_root, opt.img_size)
     DSC = 0.0
+    val_loss = 0.0
     for i in range(num1):
         image, gt, name = test_loader.load_data()
         gt = np.asarray(gt, np.float32)
@@ -63,6 +64,8 @@ def test(model, path, dataset):
         
         
         res = F.upsample(res1 + res2 + res3 + res4, size=gt.shape, mode='bilinear', align_corners=False) # additive aggregation and upsampling
+        gt_tensor = torch.from_numpy(gt).unsqueeze(0).unsqueeze(0).to(DEVICE)
+        val_loss += float(structure_loss(res, gt_tensor).detach().cpu())
         res = res.sigmoid().data.cpu().numpy().squeeze() # apply sigmoid aggregation for binary segmentation
         res = (res - res.min()) / (res.max() - res.min() + 1e-8)
         
@@ -79,7 +82,7 @@ def test(model, path, dataset):
         dice = float(dice)
         DSC = DSC + dice
 
-    return DSC / num1, num1
+    return DSC / num1, val_loss / num1, num1
 
 def train(train_loader, model, optimizer, epoch, test_path, model_name = 'PVT-CASCADE'):
     model.train()
@@ -139,25 +142,28 @@ def train(train_loader, model, optimizer, epoch, test_path, model_name = 'PVT-CA
     if (epoch + 1) % 1 == 0:
         total_dice = 0
         total_images = 0
+        total_loss = 0
         datasets = available_test_datasets(test_path)
         if not datasets:
             raise FileNotFoundError(f"No validation datasets found under {test_path}")
         print(f"Validating on: {', '.join(datasets)}", flush=True)
         for dataset in datasets:
-            dataset_dice, n_images = test(model, test_path, dataset)
+            dataset_dice, dataset_loss, n_images = test(model, test_path, dataset)
             total_dice += (n_images*dataset_dice)
+            total_loss += (n_images*dataset_loss)
             total_images += n_images
-            logging.info('epoch: {}, dataset: {}, dice: {}'.format(epoch, dataset, dataset_dice))
-            print(dataset, ': ', dataset_dice, flush=True)
+            logging.info('epoch: {}, dataset: {}, dice: {}, loss: {}'.format(epoch, dataset, dataset_dice, dataset_loss))
+            print(dataset, ': ', dataset_dice, dataset_loss, flush=True)
             dict_plot[dataset].append(dataset_dice)
         meandice = total_dice/total_images
+        meanloss = total_loss/total_images
         dict_plot['test'].append(meandice)
-        print('Validation dice score: {}'.format(meandice), flush=True)
-        logging.info('Validation dice score: {}'.format(meandice))
-        if meandice > best:
-            print('##################### Dice score improved from {} to {}'.format(best, meandice))
-            logging.info('##################### Dice score improved from {} to {}'.format(best, meandice))
-            best = meandice
+        print('Validation dice score: {}, loss: {}'.format(meandice, meanloss), flush=True)
+        logging.info('Validation dice score: {}, loss: {}'.format(meandice, meanloss))
+        if meanloss < best:
+            print('##################### Validation loss improved from {} to {}'.format(best, meanloss))
+            logging.info('##################### Validation loss improved from {} to {}'.format(best, meanloss))
+            best = meanloss
             torch.save(model.state_dict(), save_path + '' + model_name + '.pth')
             torch.save(model.state_dict(), save_path +str(epoch)+ '' + model_name + '-best.pth')
     
@@ -218,7 +224,7 @@ if __name__ == '__main__':
     print(f"Using device: {DEVICE}", flush=True)
     model.to(DEVICE)
 	
-    best = 0
+    best = float("inf")
 
     params = model.parameters()
 
@@ -237,7 +243,7 @@ if __name__ == '__main__':
 
     print("#" * 20, "Start Training", "#" * 20, flush=True)
 
-    for epoch in range(1, opt.epoch):
+    for epoch in range(1, opt.epoch + 1):
         adjust_lr(optimizer, opt.lr, epoch, opt.decay_rate, opt.decay_epoch)
         train(train_loader, model, optimizer, epoch, opt.test_path, model_name = model_name)
     
