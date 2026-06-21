@@ -1,4 +1,6 @@
+import argparse
 import os
+import re
 import time
 import datetime
 import numpy as np
@@ -15,6 +17,128 @@ from metrics import DiceLoss, DiceBCELoss, MultiClassBCE
 # image_size must be a module-level global because DATASET.__getitem__ references it
 image_size = 352
 size = (image_size, image_size)
+
+
+def parse_args():
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--epochs", type=int, default=200)
+    parser.add_argument("--batch-size", type=int, default=8)
+    parser.add_argument("--lr", type=float, default=1e-4)
+    parser.add_argument("--checkpoint", default="files/checkpoint.pth")
+    parser.add_argument("--last-checkpoint", default="files/last_checkpoint.pth")
+    parser.add_argument(
+        "--resume",
+        default="auto",
+        help="'auto' resumes from files/last_checkpoint.pth or files/checkpoint.pth, "
+        "'none' starts from scratch, otherwise pass a checkpoint path.",
+    )
+    return parser.parse_args()
+
+
+def load_torch_checkpoint(path, device):
+    try:
+        return torch.load(path, map_location=device, weights_only=False)
+    except TypeError:
+        return torch.load(path, map_location=device)
+
+
+def infer_best_from_log(train_log_path):
+    if not os.path.exists(train_log_path):
+        return 0, float("inf")
+
+    best_epoch = 0
+    best_valid_loss = float("inf")
+    pending_loss = None
+    improved_re = re.compile(r"Val loss improved from .* to ([0-9]+(?:\.[0-9]+)?)")
+    epoch_re = re.compile(r"Epoch:\s*(\d+)")
+
+    with open(train_log_path) as file:
+        for line in file:
+            improved_match = improved_re.search(line)
+            if improved_match:
+                pending_loss = float(improved_match.group(1))
+                continue
+
+            epoch_match = epoch_re.search(line)
+            if epoch_match and pending_loss is not None:
+                best_epoch = int(epoch_match.group(1))
+                best_valid_loss = pending_loss
+                pending_loss = None
+
+    return best_epoch, best_valid_loss
+
+
+def resolve_resume_path(resume, last_checkpoint_path, checkpoint_path):
+    if resume == "none":
+        return None
+    if resume != "auto":
+        return resume
+    if os.path.exists(last_checkpoint_path):
+        return last_checkpoint_path
+    if os.path.exists(checkpoint_path):
+        return checkpoint_path
+    return None
+
+
+def restore_training_state(
+    resume_path,
+    model,
+    optimizer,
+    scheduler,
+    train_log_path,
+    device,
+):
+    if not resume_path:
+        return 1, float("inf"), "Starting from scratch."
+
+    checkpoint = load_torch_checkpoint(resume_path, device)
+    if isinstance(checkpoint, dict) and "model_state_dict" in checkpoint:
+        model.load_state_dict(checkpoint["model_state_dict"])
+        if "optimizer_state_dict" in checkpoint:
+            optimizer.load_state_dict(checkpoint["optimizer_state_dict"])
+        if "scheduler_state_dict" in checkpoint:
+            scheduler.load_state_dict(checkpoint["scheduler_state_dict"])
+        completed_epoch = int(checkpoint.get("epoch", 0))
+        best_valid_loss = float(checkpoint.get("best_valid_loss", float("inf")))
+        return (
+            completed_epoch + 1,
+            best_valid_loss,
+            f"Resuming full checkpoint from {resume_path} after epoch {completed_epoch}.",
+        )
+
+    model.load_state_dict(checkpoint)
+    best_epoch, best_valid_loss = infer_best_from_log(train_log_path)
+    message = (
+        f"Loaded best model weights from {resume_path}. "
+        "Optimizer and scheduler state were not available."
+    )
+    if best_epoch:
+        message += f" Continuing from epoch {best_epoch + 1} based on train_log.txt."
+    return max(best_epoch + 1, 1), best_valid_loss, message
+
+
+def save_last_checkpoint(
+    path,
+    epoch,
+    model,
+    optimizer,
+    scheduler,
+    best_valid_loss,
+    batch_size,
+    lr,
+):
+    torch.save(
+        {
+            "epoch": epoch,
+            "model_state_dict": model.state_dict(),
+            "optimizer_state_dict": optimizer.state_dict(),
+            "scheduler_state_dict": scheduler.state_dict(),
+            "best_valid_loss": best_valid_loss,
+            "batch_size": batch_size,
+            "lr": lr,
+        },
+        path,
+    )
 
 
 def load_names(path, file_path):
@@ -48,8 +172,8 @@ class DATASET(Dataset):
 
     def mask_to_text(self, mask):
         bboxes = mask_to_bbox(mask)
-        num_polyps = 0 if len(bboxes) == 1 else 1
-        polyp_sizes = None
+        num_polyps = 0 if len(bboxes) <= 1 else 1
+        polyp_sizes = 0
         for bbox in bboxes:
             x1, y1, x2, y2 = bbox
             h = (y2 - y1)
@@ -61,7 +185,7 @@ class DATASET(Dataset):
                 polyp_sizes = 2
             elif area >= 0.10 and area < 0.30:
                 polyp_sizes = 1
-        return np.array(num_polyps), np.array(polyp_sizes)
+        return np.array(num_polyps, dtype=np.int64), np.array(polyp_sizes, dtype=np.int64)
 
     def __getitem__(self, index):
         image = cv2.imread(self.images_path[index], cv2.IMREAD_COLOR)
@@ -75,11 +199,13 @@ class DATASET(Dataset):
         image = cv2.resize(image, size)
         image = np.transpose(image, (2, 0, 1))
         image = image / 255.0
+        image = image.astype(np.float32)
 
         mask = cv2.resize(mask, size)
         mask_copy = mask
         mask = np.expand_dims(mask, axis=0)
         mask = mask / 255.0
+        mask = mask.astype(np.float32)
 
         num_polyps, polyp_sizes = self.mask_to_text(mask_copy)
 
@@ -88,7 +214,7 @@ class DATASET(Dataset):
         for word in words:
             word_embed = self.embed.to_embed(word)[0]
             label.append(word_embed)
-        label = np.array(label)
+        label = np.array(label, dtype=np.float32)
 
         return (image, label), (mask, num_polyps, polyp_sizes)
 
@@ -185,6 +311,7 @@ def evaluate(model, loader, loss_fn, device):
 
 
 if __name__ == "__main__":
+    args = parse_args()
     seeding(42)
     create_dir("files")
 
@@ -194,10 +321,11 @@ if __name__ == "__main__":
 
     print_and_save(train_log_path, str(datetime.datetime.now()))
 
-    batch_size = 8
-    num_epochs = 200
-    lr = 1e-4
-    checkpoint_path = "files/checkpoint.pth"
+    batch_size = args.batch_size
+    num_epochs = args.epochs
+    lr = args.lr
+    checkpoint_path = args.checkpoint
+    last_checkpoint_path = args.last_checkpoint
     path = "../../data/tganet_kvasir"
 
     data_str = f"Image Size: {size}\nBatch Size: {batch_size}\nLR: {lr}\nEpochs: {num_epochs}\n"
@@ -234,9 +362,25 @@ if __name__ == "__main__":
 
     print_and_save(train_log_path, "Optimizer: Adam\nLoss: BCE Dice Loss\n")
 
-    best_valid_loss = float("inf")
+    resume_path = resolve_resume_path(args.resume, last_checkpoint_path, checkpoint_path)
+    start_epoch, best_valid_loss, resume_message = restore_training_state(
+        resume_path,
+        model,
+        optimizer,
+        scheduler,
+        train_log_path,
+        device,
+    )
+    print_and_save(train_log_path, resume_message)
 
-    for epoch in range(num_epochs):
+    if start_epoch > num_epochs:
+        print_and_save(
+            train_log_path,
+            f"Checkpoint is already past requested epochs ({start_epoch - 1}/{num_epochs}).",
+        )
+        raise SystemExit(0)
+
+    for epoch in range(start_epoch, num_epochs + 1):
         start_time = time.time()
 
         train_loss, train_metrics = train(model, train_loader, optimizer, loss_fn, device)
@@ -249,8 +393,19 @@ if __name__ == "__main__":
             best_valid_loss = valid_loss
             torch.save(model.state_dict(), checkpoint_path)
 
+        save_last_checkpoint(
+            last_checkpoint_path,
+            epoch,
+            model,
+            optimizer,
+            scheduler,
+            best_valid_loss,
+            batch_size,
+            lr,
+        )
+
         epoch_mins, epoch_secs = epoch_time(start_time, time.time())
-        data_str = f"Epoch: {epoch+1:02} | {epoch_mins}m {epoch_secs}s\n"
+        data_str = f"Epoch: {epoch:02} | {epoch_mins}m {epoch_secs}s\n"
         data_str += f"\tTrain Loss: {train_loss:.4f} - F1: {train_metrics[1]:.4f}\n"
         data_str += f"\t Val. Loss: {valid_loss:.4f} - F1: {valid_metrics[1]:.4f}\n"
         print_and_save(train_log_path, data_str)

@@ -82,6 +82,16 @@ data = dict(
         palette=palette,
         pipeline=test_pipeline,
     ),
+    val_dataloader=dict(
+        workers_per_gpu=0,
+        persistent_workers=False,
+        pin_memory=False,
+    ),
+    test_dataloader=dict(
+        workers_per_gpu=0,
+        persistent_workers=False,
+        pin_memory=False,
+    ),
 )
 
 norm_cfg = dict(type='BN', requires_grad=True)
@@ -149,7 +159,7 @@ lr_config = dict(
     min_lr=0.0,
     by_epoch=False,
 )
-runner = dict(type='EpochBasedRunner', max_epochs=200)
+runner = dict(_delete_=True, type='EpochBasedRunner', max_epochs=200)
 log_config = dict(
     interval=50,
     hooks=[

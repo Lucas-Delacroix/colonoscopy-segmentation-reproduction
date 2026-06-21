@@ -97,6 +97,8 @@ commands:
     env: upstream/envs/colonformer.yml
     cwd: upstream/vendor/colonformer
     overlay:
+      - source: ../../../weights/mit_b3.pth
+        target: pretrained/mit_b3.pth
       - source: ../../overlays/colonformer/train.py
         target: train.py
     train: >-
