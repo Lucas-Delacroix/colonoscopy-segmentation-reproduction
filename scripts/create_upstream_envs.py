@@ -45,7 +45,7 @@ def parse_args() -> argparse.Namespace:
 
 
 def env_name(env_file: Path) -> str:
-    with open(env_file) as file:
+    with env_file.open() as file:
         data = yaml.safe_load(file)
     return data["name"]
 
@@ -62,7 +62,7 @@ def existing_env_names() -> set[str]:
 
 
 def load_commands() -> dict:
-    with open(COMMANDS) as file:
+    with COMMANDS.open() as file:
         return yaml.safe_load(file)["commands"]
 
 

@@ -69,6 +69,7 @@ class DatasetDownloader(ABC):
         print(f"Saved archive: {self.archive_path}")
 
     def _download_url(self, url: str, output_path: Path) -> None:
+        output_path.parent.mkdir(parents=True, exist_ok=True)
         ssl_context = ssl.create_default_context()
         ssl_context.check_hostname = False
         ssl_context.verify_mode = ssl.CERT_NONE
@@ -78,7 +79,7 @@ class DatasetDownloader(ABC):
         )
 
         with urlopen(request, context=ssl_context) as response:
-            with open(output_path, "wb") as output_file:
+            with output_path.open("wb") as output_file:
                 shutil.copyfileobj(response, output_file)
 
     def _verify_archive(self) -> None:
@@ -86,7 +87,7 @@ class DatasetDownloader(ABC):
             return
 
         digest = hashlib.sha256()
-        with open(self.archive_path, "rb") as file:
+        with self.archive_path.open("rb") as file:
             for chunk in iter(lambda: file.read(1024 * 1024), b""):
                 digest.update(chunk)
 

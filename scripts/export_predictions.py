@@ -19,23 +19,45 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--checkpoint", default=None)
     parser.add_argument("--data-root", default="data/raw/kvasir-seg")
     parser.add_argument("--split-file", default="data/splits/kvasir_split.json")
-    parser.add_argument("--split", default="test")
+    parser.add_argument("--split", default="test", choices=("train", "val", "test"))
     parser.add_argument("--output-dir", default=None)
     parser.add_argument("--threshold", type=float, default=0.5)
     parser.add_argument("--device", default="cuda")
     return parser.parse_args()
 
 
+def root_path(path: str | Path) -> Path:
+    path = Path(path)
+    return path if path.is_absolute() else ROOT / path
+
+
 def split_samples(data_root: Path, split_file: Path, split: str) -> list[Path]:
     images = sorted((data_root / "images").glob("*.jpg"))
-    with open(split_file) as file:
-        indices = json.load(file)[split]
-    return [images[idx] for idx in indices]
+    if not images:
+        raise FileNotFoundError(f"No .jpg images found in {data_root / 'images'}")
+    with split_file.open() as file:
+        split_data = json.load(file)
+    if split not in split_data:
+        raise KeyError(f"Split '{split}' not found in {split_file}")
+    indices = split_data[split]
+    samples = []
+    for idx in indices:
+        try:
+            samples.append(images[idx])
+        except IndexError as exc:
+            raise IndexError(
+                f"Split index {idx} is out of range for {len(images)} images in {data_root}"
+            ) from exc
+    return samples
 
 
 def add_vendor(name: str) -> Path:
     path = VENDOR / name
-    sys.path.insert(0, str(path))
+    if not path.is_dir():
+        raise FileNotFoundError(f"Vendor repository not found: {path}")
+    path_text = str(path)
+    if path_text not in sys.path:
+        sys.path.insert(0, path_text)
     return path
 
 
@@ -50,9 +72,11 @@ def torch_device(name: str):
 def load_torch_model(model, checkpoint: Path, device):
     import torch
 
+    if not checkpoint.exists():
+        raise FileNotFoundError(f"Checkpoint not found: {checkpoint}")
     state = torch.load(checkpoint, map_location=device)
-    if isinstance(state, dict) and "state_dict" in state:
-        state = state["state_dict"]
+    if isinstance(state, dict):
+        state = state.get("model_state_dict", state.get("state_dict", state))
     model.load_state_dict(state)
     model.to(device)
     model.eval()
@@ -63,7 +87,21 @@ def latest_checkpoint(paths: list[Path]) -> Path:
     matches = []
     for path in paths:
         matches.extend(path.parent.glob(path.name))
+    if not matches:
+        patterns = ", ".join(str(path) for path in paths)
+        raise FileNotFoundError(f"No checkpoint matched: {patterns}")
     return sorted(matches, key=lambda item: item.stat().st_mtime)[-1]
+
+
+def normalize_minmax(mask: np.ndarray, eps: float = 1e-8) -> np.ndarray:
+    return (mask - mask.min()) / (mask.max() - mask.min() + eps)
+
+
+def read_cv2_color(path: Path) -> np.ndarray:
+    image = cv2.imread(str(path), cv2.IMREAD_COLOR)
+    if image is None:
+        raise ValueError(f"Could not read image: {path}")
+    return image
 
 
 def save_mask(path: Path, mask: np.ndarray, threshold: float) -> None:
@@ -72,7 +110,8 @@ def save_mask(path: Path, mask: np.ndarray, threshold: float) -> None:
     if mask.max(initial=0) > 1:
         mask = mask / 255.0
     mask = ((mask > threshold) * 255).astype(np.uint8)
-    cv2.imwrite(str(path), mask)
+    if not cv2.imwrite(str(path), mask):
+        raise OSError(f"Could not write mask: {path}")
 
 
 def export_hardnet_mseg(args: argparse.Namespace, samples: list[Path], output_dir: Path) -> None:
@@ -138,7 +177,7 @@ def export_hardnet_dfus(args: argparse.Namespace, samples: list[Path], output_di
                 pred = pred[0]
             pred = F.interpolate(pred, size=shape, mode="bilinear", align_corners=False)
             pred = nn.Tanh()(pred).cpu().numpy().squeeze()
-            pred = (pred - pred.min()) / (pred.max() - pred.min() + 1e-16)
+            pred = normalize_minmax(pred, eps=1e-16)
             save_mask(output_dir / f"{image_path.stem}.png", pred, args.threshold)
 
 
@@ -169,7 +208,7 @@ def export_cascade(args: argparse.Namespace, samples: list[Path], output_dir: Pa
             pred = preds[0] + preds[1] + preds[2] + preds[3]
             pred = F.interpolate(pred, size=shape, mode="bilinear", align_corners=False)
             pred = torch.sigmoid(pred).cpu().numpy().squeeze()
-            pred = (pred - pred.min()) / (pred.max() - pred.min() + 1e-8)
+            pred = normalize_minmax(pred)
             save_mask(output_dir / f"{image_path.stem}.png", pred, args.threshold)
 
 
@@ -206,7 +245,7 @@ def export_colonformer(args: argparse.Namespace, samples: list[Path], output_dir
 
     with torch.no_grad():
         for image_path in samples:
-            image = cv2.imread(str(image_path))
+            image = read_cv2_color(image_path)
             shape = image.shape[:2]
             image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
             image = cv2.resize(image, (352, 352)).astype("float32") / 255.0
@@ -214,7 +253,7 @@ def export_colonformer(args: argparse.Namespace, samples: list[Path], output_dir
             pred = model(tensor)[0]
             pred = F.interpolate(pred, size=shape, mode="bilinear", align_corners=False)
             pred = torch.sigmoid(pred).cpu().numpy().squeeze()
-            pred = (pred - pred.min()) / (pred.max() - pred.min() + 1e-8)
+            pred = normalize_minmax(pred)
             save_mask(output_dir / f"{image_path.stem}.png", pred, args.threshold)
 
 
@@ -235,7 +274,7 @@ def export_tganet(args: argparse.Namespace, samples: list[Path], output_dir: Pat
 
     with torch.no_grad():
         for image_path in samples:
-            image = cv2.imread(str(image_path), cv2.IMREAD_COLOR)
+            image = read_cv2_color(image_path)
             image = cv2.resize(image, (256, 256))
             image = image.transpose(2, 0, 1) / 255.0
             image = torch.from_numpy(image).unsqueeze(0).to(device, dtype=torch.float32)
@@ -253,7 +292,7 @@ def export_meta_polyp(args: argparse.Namespace, samples: list[Path], output_dir:
     model.load_weights(str(checkpoint))
 
     for image_path in samples:
-        image = cv2.imread(str(image_path))
+        image = read_cv2_color(image_path)
         image = cv2.resize(image, (256, 256))
         image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
         pred = model.predict(np.expand_dims(image, axis=0), verbose=0)
@@ -281,17 +320,24 @@ def export_esfpnet(args: argparse.Namespace, samples: list[Path], output_dir: Pa
     from PIL import Image
     from torchvision import transforms
 
-    from models import get_model
+    vendor = add_vendor("esfpnet")
+    from kvasir import ESFPNetStructure
 
-    checkpoint = Path(args.checkpoint or ROOT / "checkpoints/esfpnet_b2_kvasir/best.pth")
+    checkpoint = Path(args.checkpoint or vendor / "SaveModel/ESFP_B2_Endo_Kvasir/ESFPNet.pt")
+    if not checkpoint.exists():
+        raise FileNotFoundError(f"Checkpoint not found: {checkpoint}")
     device = torch_device(args.device)
-    model = get_model("esfpnet", num_classes=1, model_type="b2")
     state = torch.load(checkpoint, map_location=device)
-    if isinstance(state, dict) and "model_state_dict" in state:
-        state = state["model_state_dict"]
-    model.load_state_dict(state)
-    model.to(device)
-    model.eval()
+    if isinstance(state, torch.nn.Module):
+        model = state.to(device).eval()
+    else:
+        model_type = state.get("model_type", "B2") if isinstance(state, dict) else "B2"
+        state_dict = state
+        if isinstance(state, dict):
+            state_dict = state.get("model_state_dict", state.get("state_dict", state))
+        model = ESFPNetStructure(model_type).to(device)
+        model.load_state_dict(state_dict)
+        model.eval()
 
     transform = transforms.Compose([
         transforms.Resize((352, 352)),
@@ -309,8 +355,6 @@ def export_esfpnet(args: argparse.Namespace, samples: list[Path], output_dir: Pa
             pred = torch.sigmoid(pred).cpu().numpy().squeeze()
             save_mask(output_dir / f"{image_path.stem}.png", pred, args.threshold)
 
-
-
 EXPORTERS = {
     "hardnet_mseg": export_hardnet_mseg,
     "hardnet_dfus": export_hardnet_dfus,
@@ -325,8 +369,12 @@ EXPORTERS = {
 
 def main() -> None:
     args = parse_args()
-    samples = split_samples(ROOT / args.data_root, ROOT / args.split_file, args.split)
-    output_dir = Path(args.output_dir or ROOT / "outputs" / "predictions" / args.model)
+    if args.model not in EXPORTERS:
+        options = ", ".join(sorted(EXPORTERS))
+        raise SystemExit(f"Unknown model '{args.model}'. Options: {options}")
+
+    samples = split_samples(root_path(args.data_root), root_path(args.split_file), args.split)
+    output_dir = root_path(args.output_dir) if args.output_dir else ROOT / "outputs" / "predictions" / args.model
     EXPORTERS[args.model](args, samples, output_dir)
     print(f"Saved {len(samples)} predictions in: {output_dir}")
 

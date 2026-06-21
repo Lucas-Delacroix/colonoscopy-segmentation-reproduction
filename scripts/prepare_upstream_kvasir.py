@@ -28,15 +28,19 @@ def parse_args() -> argparse.Namespace:
 
 def load_or_create_split(total: int) -> dict[str, list[int]]:
     if SPLIT_FILE.exists():
-        with open(SPLIT_FILE) as file:
+        with SPLIT_FILE.open() as file:
             split = json.load(file)
+        required_keys = {"train", "val", "test"}
+        if not required_keys <= set(split):
+            missing = ", ".join(sorted(required_keys - set(split)))
+            raise ValueError(f"Split file {SPLIT_FILE} is missing key(s): {missing}")
         split_total = sum(len(split.get(name, [])) for name in ("train", "val", "test"))
         if split.get("total") == total or split_total == total:
             return {name: split[name] for name in ("train", "val", "test")}
 
     indices = list(range(total))
-    random.seed(SEED)
-    random.shuffle(indices)
+    rng = random.Random(SEED)
+    rng.shuffle(indices)
     n_train = int(total * 0.8)
     n_val = int(total * 0.1)
     return {
@@ -66,9 +70,10 @@ def link_or_copy(source: Path, destination: Path, copy: bool) -> None:
 
 def write_binary_png_mask(source: Path, destination: Path) -> None:
     destination.parent.mkdir(parents=True, exist_ok=True)
-    mask = Image.open(source).convert("L")
-    mask = mask.point(lambda value: 1 if value > 127 else 0)
-    mask.save(destination)
+    with Image.open(source) as mask:
+        mask = mask.convert("L")
+        mask = mask.point(lambda value: 1 if value > 127 else 0)
+        mask.save(destination)
 
 
 def mirror_split(samples: list[tuple[Path, Path]], indices: list[int], destination: Path, copy: bool) -> None:
@@ -91,6 +96,8 @@ def main() -> None:
     images_dir = source / "images"
     masks_dir = source / "masks"
 
+    if not source.is_dir():
+        raise FileNotFoundError(f"Prepared Kvasir-SEG root not found: {source}")
     images = sorted(images_dir.glob("*.jpg"))
     if not images:
         raise FileNotFoundError(f"No .jpg images found in {images_dir}")

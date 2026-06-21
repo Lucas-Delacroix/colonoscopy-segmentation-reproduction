@@ -1,5 +1,6 @@
 import argparse
 import random
+import subprocess
 import sys
 from pathlib import Path
 
@@ -11,6 +12,9 @@ from torch.utils.data import Subset
 from data.datamodule import PolypDataModule
 from models import get_model
 from training.trainer import Trainer
+
+
+ROOT = Path(__file__).resolve().parents[1]
 
 
 def parse_args():
@@ -102,9 +106,34 @@ def set_seed(seed: int):
     torch.backends.cudnn.benchmark = False
 
 
+def run_upstream_esfpnet(args) -> None:
+    if args.epochs is not None or args.smoke_test:
+        raise SystemExit(
+            "ESFPNet now uses only the upstream implementation. "
+            "Use `make train MODEL=esfpnet`; local --epochs/--smoke_test overrides "
+            "are not supported on this legacy entrypoint."
+        )
+
+    completed = subprocess.run(
+        [sys.executable, "-m", "scripts.run_upstream", "esfpnet"],
+        cwd=ROOT,
+        check=False,
+    )
+    if completed.returncode != 0:
+        raise SystemExit(completed.returncode)
+
+
 def main():
     args = parse_args()
     config = load_config(args.config)
+    model_config = config.get("model", {})
+    model_name = model_config.get("name")
+    if not model_name:
+        raise SystemExit(f"Missing model.name in config: {args.config}")
+
+    if model_name == "esfpnet":
+        run_upstream_esfpnet(args)
+        return
 
     seed = config.get("seed", 42)
     set_seed(seed)
@@ -130,7 +159,6 @@ def main():
         print("Smoke test mode: running 3 epochs on a small subset only.")
 
     training_config = config["training"]
-    model_config = config["model"]
 
     training_config["checkpoint_dir"] = str(
         Path("checkpoints") / config["logging"]["run_name"]
@@ -156,14 +184,14 @@ def main():
 
     print("\nBuilding model...")
     model = get_model(
-        model_config["name"],
-        num_classes=model_config["num_classes"],
+        model_name,
+        num_classes=model_config.get("num_classes", 1),
         model_type=model_config.get("model_type", "b2"),
         pretrained_path=model_config.get("pretrained_path"),
     )
 
     total_params = sum(p.numel() for p in model.parameters()) / 1e6
-    print(f"Model: {model_config['name']} — {total_params:.1f}M parameters")
+    print(f"Model: {model_name} - {total_params:.1f}M parameters")
 
     print("\nStarting training...")
     trainer = Trainer(
@@ -180,7 +208,7 @@ def main():
 
     import csv
     csv_path = output_dir / "history.csv"
-    with open(csv_path, "w", newline="") as f:
+    with csv_path.open("w", newline="") as f:
         writer = csv.DictWriter(f, fieldnames=[
             "epoch", "train_loss", "train_dice",
             "val_loss", "val_dice", "val_iou",

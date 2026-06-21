@@ -1,32 +1,32 @@
 import torch
 
 
+def _flatten_pair(pred: torch.Tensor, target: torch.Tensor) -> tuple[torch.Tensor, torch.Tensor]:
+    return pred.float().contiguous().view(-1), target.float().contiguous().view(-1)
+
+
 def dice_coefficient(pred: torch.Tensor, target: torch.Tensor, smooth: float = 1e-6) -> float:
-    pred = pred.float().contiguous().view(-1)
-    target = target.float().contiguous().view(-1)
+    pred, target = _flatten_pair(pred, target)
     intersection = (pred * target).sum()
     return ((2.0 * intersection + smooth) / (pred.sum() + target.sum() + smooth)).item()
 
 
 def iou_score(pred: torch.Tensor, target: torch.Tensor, smooth: float = 1e-6) -> float:
-    pred = pred.float().contiguous().view(-1)
-    target = target.float().contiguous().view(-1)
+    pred, target = _flatten_pair(pred, target)
     intersection = (pred * target).sum()
     union = pred.sum() + target.sum() - intersection
     return ((intersection + smooth) / (union + smooth)).item()
 
 
 def precision_score(pred: torch.Tensor, target: torch.Tensor, smooth: float = 1e-6) -> float:
-    pred = pred.float().contiguous().view(-1)
-    target = target.float().contiguous().view(-1)
+    pred, target = _flatten_pair(pred, target)
     tp = (pred * target).sum()
     fp = (pred * (1 - target)).sum()
     return ((tp + smooth) / (tp + fp + smooth)).item()
 
 
 def recall_score(pred: torch.Tensor, target: torch.Tensor, smooth: float = 1e-6) -> float:
-    pred = pred.float().contiguous().view(-1)
-    target = target.float().contiguous().view(-1)
+    pred, target = _flatten_pair(pred, target)
     tp = (pred * target).sum()
     fn = ((1 - pred) * target).sum()
     return ((tp + smooth) / (tp + fn + smooth)).item()

@@ -23,13 +23,14 @@ def parse_args() -> argparse.Namespace:
 
 
 def load_repos() -> dict:
-    with open(MANIFEST) as file:
+    with MANIFEST.open() as file:
         return yaml.safe_load(file)["repos"]
 
 
 def download(url: str, destination: Path) -> None:
     request = Request(url, headers={"User-Agent": "colonoscopy-reproduction"})
-    with urlopen(request) as response, open(destination, "wb") as file:
+    destination.parent.mkdir(parents=True, exist_ok=True)
+    with urlopen(request) as response, destination.open("wb") as file:
         shutil.copyfileobj(response, file)
 
 
@@ -48,6 +49,10 @@ def main() -> None:
     args = parse_args()
     repos = load_repos()
     selected = set(args.only or repos.keys())
+    unknown = selected - set(repos)
+    if unknown:
+        options = ", ".join(sorted(repos))
+        raise SystemExit(f"Unknown repo(s): {', '.join(sorted(unknown))}. Options: {options}")
     VENDOR_DIR.mkdir(parents=True, exist_ok=True)
 
     for name, meta in repos.items():

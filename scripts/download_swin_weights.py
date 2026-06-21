@@ -26,14 +26,14 @@ def parse_args() -> argparse.Namespace:
 
 def download_file(url: str, destination: Path) -> None:
     request = Request(url, headers={"User-Agent": "colonoscopy-segmentation-reproduction"})
-    with urlopen(request) as response, open(destination, "wb") as output_file:
+    destination.parent.mkdir(parents=True, exist_ok=True)
+    with urlopen(request) as response, destination.open("wb") as output_file:
         shutil.copyfileobj(response, output_file)
 
 
 def main() -> None:
     args = parse_args()
     output_path = Path(args.output)
-    output_path.parent.mkdir(parents=True, exist_ok=True)
     print(f"Downloading {args.url}")
     download_file(args.url, output_path)
     print(f"Saved {output_path}")

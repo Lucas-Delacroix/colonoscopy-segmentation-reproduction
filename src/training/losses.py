@@ -62,7 +62,7 @@ LOSSES = {
 
 
 def get_loss(name: str, **kwargs) -> nn.Module:
-    assert name in LOSSES, (
-        f"Loss '{name}' não reconhecida. Opções: {list(LOSSES.keys())}"
-    )
+    if name not in LOSSES:
+        options = ", ".join(sorted(LOSSES))
+        raise ValueError(f"Unknown loss '{name}'. Available losses: {options}")
     return LOSSES[name](**kwargs)

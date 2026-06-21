@@ -36,8 +36,13 @@ def apply_replacements(repo_dir: Path, name: str, replacements: list[dict]) -> N
 def main() -> None:
     args = parse_args()
     selected = set(args.only) if args.only else None
-    with open(COMMANDS) as file:
+    with COMMANDS.open() as file:
         commands = yaml.safe_load(file)["commands"]
+    if selected is not None:
+        unknown = selected - set(commands)
+        if unknown:
+            options = ", ".join(sorted(commands))
+            raise SystemExit(f"Unknown model(s): {', '.join(sorted(unknown))}. Options: {options}")
 
     for name, entry in commands.items():
         if selected is not None and name not in selected:

@@ -23,14 +23,14 @@ def parse_args() -> argparse.Namespace:
 
 
 def load_commands() -> dict:
-    with open(COMMANDS) as file:
+    with COMMANDS.open() as file:
         return yaml.safe_load(file)["commands"]
 
 
 def conda_env_name(env_ref: str) -> str | None:
     if not env_ref.endswith((".yml", ".yaml")):
         return None
-    with open(ROOT / env_ref) as file:
+    with (ROOT / env_ref).open() as file:
         return yaml.safe_load(file)["name"]
 
 

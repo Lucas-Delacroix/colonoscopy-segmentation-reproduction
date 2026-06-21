@@ -75,7 +75,7 @@ def parse_args() -> argparse.Namespace:
 
 
 def load_model_keys() -> set[str]:
-    with open(COMMANDS) as file:
+    with COMMANDS.open() as file:
         return set(yaml.safe_load(file)["commands"])
 
 
@@ -164,7 +164,8 @@ def run_and_log(
             bufsize=0,
             env=env,
         )
-        assert process.stdout is not None
+        if process.stdout is None:
+            raise RuntimeError(f"Could not capture stdout for {label}.")
 
         selector = selectors.DefaultSelector()
         selector.register(process.stdout, selectors.EVENT_READ)

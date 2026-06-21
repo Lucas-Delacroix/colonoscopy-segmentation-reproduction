@@ -1,7 +1,7 @@
 [project]
 name = "colonoscopy-segmentation-reproduction"
 version = "0.1.0"
-description = "Add your description here"
+description = "Reproduction pipeline for colonoscopy image segmentation experiments"
 readme = "README.md"
 requires-python = ">=3.13"
 dependencies = [

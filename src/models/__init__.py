@@ -14,16 +14,14 @@ def register_model(name: str):
 
 def get_model(name: str, **kwargs) -> BaseModel:
     if name not in _REGISTRY:
-        available = list(_REGISTRY.keys())
+        available = ", ".join(list_models()) or "none"
         raise ValueError(
-            f"Model '{name}' not found in registry. "
-            f"Available models: {available}"
+            f"Local model '{name}' is not registered. "
+            f"Available local models: {available}. "
+            "Upstream models should be run through `make train MODEL=<model>`."
         )
     return _REGISTRY[name](**kwargs)
 
 
 def list_models() -> list[str]:
     return list(_REGISTRY.keys())
-
-# Import built-in models so decorators populate the registry.
-from models import esfpnet  # noqa: E402,F401

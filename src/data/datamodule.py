@@ -1,15 +1,11 @@
-import json
-from pathlib import Path
-
-import torch
-from torch.utils.data import DataLoader
+from torch.utils.data import DataLoader, Dataset
 
 from data.datasets.kvasir import KvasirDataset
 from data.transforms.augmentation import get_train_transforms, get_val_transforms
 
 
 class PolypDataModule:
-    DATASETS = {
+    DATASETS: dict[str, type[Dataset]] = {
         "kvasir": KvasirDataset,
     }
 
@@ -22,10 +18,9 @@ class PolypDataModule:
         num_workers: int = 4,
         pin_memory: bool = True,
     ):
-        assert dataset_name in self.DATASETS, (
-            f"Dataset '{dataset_name}' not recognized. "
-            f"Options: {list(self.DATASETS.keys())}"
-        )
+        if dataset_name not in self.DATASETS:
+            options = ", ".join(sorted(self.DATASETS))
+            raise ValueError(f"Unknown dataset '{dataset_name}'. Available datasets: {options}")
 
         self.dataset_cls = self.DATASETS[dataset_name]
         self.data_root = data_root
@@ -38,7 +33,7 @@ class PolypDataModule:
         self._val_dataset = None
         self._test_dataset = None
 
-    def setup(self):
+    def setup(self) -> None:
         self._train_dataset = self.dataset_cls(
             root=self.data_root,
             split="train",
@@ -60,15 +55,21 @@ class PolypDataModule:
 
         self._log_split_info()
 
-    def _log_split_info(self):
+    def _log_split_info(self) -> None:
         print("Dataset loaded:")
         print(f"  Train:    {len(self._train_dataset)} images")
         print(f"  Validation: {len(self._val_dataset)} images")
         print(f"  Test:     {len(self._test_dataset)} images")
 
+    @staticmethod
+    def _require_dataset(dataset: Dataset | None, split: str) -> Dataset:
+        if dataset is None:
+            raise RuntimeError(f"DataModule.setup() must be called before requesting the {split} loader.")
+        return dataset
+
     def train_loader(self) -> DataLoader:
         return DataLoader(
-            self._train_dataset,
+            self._require_dataset(self._train_dataset, "train"),
             batch_size=self.batch_size,
             shuffle=True,
             num_workers=self.num_workers,
@@ -78,7 +79,7 @@ class PolypDataModule:
 
     def val_loader(self) -> DataLoader:
         return DataLoader(
-            self._val_dataset,
+            self._require_dataset(self._val_dataset, "validation"),
             batch_size=self.batch_size,
             shuffle=False,
             num_workers=self.num_workers,
@@ -87,7 +88,7 @@ class PolypDataModule:
 
     def test_loader(self) -> DataLoader:
         return DataLoader(
-            self._test_dataset,
+            self._require_dataset(self._test_dataset, "test"),
             batch_size=1,
             shuffle=False,
             num_workers=self.num_workers,

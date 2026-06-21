@@ -17,7 +17,7 @@ class KvasirDataset(BaseDataset):
         self.image_size = image_size
         super().__init__(root, split, transform)
 
-    def _load_samples(self) -> list:
+    def _load_samples(self) -> list[tuple[str, str]]:
         root = Path(self.root)
         images_dir = root / "images"
         masks_dir = root / "masks"
@@ -59,9 +59,13 @@ class KvasirDataset(BaseDataset):
         split_path = Path(self.SPLIT_FILE)
 
         if split_path.exists():
-            with open(split_path) as f:
+            with split_path.open() as f:
                 split_indices = json.load(f)
 
+            required_keys = {"train", "val", "test"}
+            if not required_keys <= set(split_indices):
+                missing = ", ".join(sorted(required_keys - set(split_indices)))
+                raise ValueError(f"Split file {split_path} is missing key(s): {missing}")
             split_total = sum(len(split_indices.get(split, [])) for split in ("train", "val", "test"))
             if split_indices.get("total") == total or split_total == total:
                 return split_indices
@@ -69,8 +73,8 @@ class KvasirDataset(BaseDataset):
         split_path.parent.mkdir(parents=True, exist_ok=True)
 
         indices = list(range(total))
-        random.seed(self.SPLIT_SEED)
-        random.shuffle(indices)
+        rng = random.Random(self.SPLIT_SEED)
+        rng.shuffle(indices)
 
         n_train = int(total * 0.8)
         n_val = int(total * 0.1)
@@ -84,7 +88,7 @@ class KvasirDataset(BaseDataset):
             "test": indices[n_train + n_val :],
         }
 
-        with open(split_path, "w") as f:
+        with split_path.open("w") as f:
             json.dump(splits, f, indent=2)
 
         return splits
@@ -93,11 +97,15 @@ class KvasirDataset(BaseDataset):
         image_path, mask_path = self.samples[idx]
 
         image = cv2.imread(image_path)
+        if image is None:
+            raise ValueError(f"Could not read image: {image_path}")
         image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
         image = cv2.resize(image, (self.image_size, self.image_size))
 
         mask = cv2.imread(mask_path, cv2.IMREAD_GRAYSCALE)
-        mask = cv2.resize(mask, (self.image_size, self.image_size))
+        if mask is None:
+            raise ValueError(f"Could not read mask: {mask_path}")
+        mask = cv2.resize(mask, (self.image_size, self.image_size), interpolation=cv2.INTER_NEAREST)
         mask = (mask > 127).astype(np.float32)
 
         if self.transform:

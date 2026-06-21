@@ -9,6 +9,9 @@ import cv2
 import numpy as np
 
 
+ROOT = Path(__file__).resolve().parents[1]
+
+
 MODEL_NAMES = {
     "hardnet_mseg": "HarDNet-MSEG",
     "hardnet-dfus": "HarDNet-DFUS",
@@ -21,6 +24,11 @@ MODEL_NAMES = {
     "meta-polyp": "Meta-Polyp",
     "cascade": "Cascade",
 }
+
+
+def root_path(path: str | Path) -> Path:
+    path = Path(path)
+    return path if path.is_absolute() else ROOT / path
 
 
 def parse_args() -> argparse.Namespace:
@@ -37,20 +45,46 @@ def parse_args() -> argparse.Namespace:
 
 
 def load_split_indices(split_file: Path, split: str) -> list[int]:
-    with open(split_file) as file:
-        return json.load(file)[split]
+    with split_file.open() as file:
+        split_data = json.load(file)
+    if split not in split_data:
+        raise KeyError(f"Split '{split}' not found in {split_file}")
+    return split_data[split]
 
 
 def load_samples(data_root: Path, split_file: Path, split: str) -> list[tuple[Path, Path]]:
     images = sorted((data_root / "images").glob("*.jpg"))
+    if not images:
+        raise FileNotFoundError(f"No .jpg images found in {data_root / 'images'}")
     masks_dir = data_root / "masks"
-    return [(images[idx], masks_dir / images[idx].name) for idx in load_split_indices(split_file, split)]
+    samples = []
+    for idx in load_split_indices(split_file, split):
+        try:
+            image = images[idx]
+        except IndexError as exc:
+            raise IndexError(
+                f"Split index {idx} is out of range for {len(images)} images in {data_root}"
+            ) from exc
+        samples.append((image, masks_dir / image.name))
+    missing_masks = [mask for _, mask in samples if not mask.exists()]
+    if missing_masks:
+        raise FileNotFoundError(f"Missing target mask, first example: {missing_masks[0]}")
+    return samples
 
 
 def model_dirs(predictions_root: Path, selected: list[str] | None) -> list[Path]:
     if selected:
-        return [predictions_root / name for name in selected]
-    return sorted(path for path in predictions_root.iterdir() if path.is_dir())
+        paths = [predictions_root / name for name in selected]
+    else:
+        if not predictions_root.is_dir():
+            raise FileNotFoundError(f"Predictions directory not found: {predictions_root}")
+        paths = sorted(path for path in predictions_root.iterdir() if path.is_dir())
+    missing = [path for path in paths if not path.is_dir()]
+    if missing:
+        raise FileNotFoundError(f"Missing prediction directory: {missing[0]}")
+    if not paths:
+        raise FileNotFoundError(f"No prediction directories found in {predictions_root}")
+    return paths
 
 
 def build_prediction_index(prediction_dir: Path) -> dict[str, Path]:
@@ -180,10 +214,10 @@ def write_markdown(rows: list[dict[str, float | int | str]], output_path: Path) 
 
 def main() -> None:
     args = parse_args()
-    predictions_root = Path(args.predictions_root)
-    data_root = Path(args.data_root)
-    split_file = Path(args.split_file)
-    output_dir = Path(args.output_dir)
+    predictions_root = root_path(args.predictions_root)
+    data_root = root_path(args.data_root)
+    split_file = root_path(args.split_file)
+    output_dir = root_path(args.output_dir)
 
     samples = load_samples(data_root, split_file, args.split)
     rows = [

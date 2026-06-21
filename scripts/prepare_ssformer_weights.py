@@ -20,7 +20,7 @@ def parse_args() -> argparse.Namespace:
 
 
 def env_name(env_file: Path) -> str:
-    with open(env_file) as file:
+    with env_file.open() as file:
         return yaml.safe_load(file)["name"]
 
 
@@ -45,7 +45,7 @@ def main() -> None:
     if selected is not None and "ssformer" not in selected:
         return
 
-    with open(COMMANDS) as file:
+    with COMMANDS.open() as file:
         entry = yaml.safe_load(file)["commands"]["ssformer"]
 
     repo_dir = ROOT / entry["cwd"]

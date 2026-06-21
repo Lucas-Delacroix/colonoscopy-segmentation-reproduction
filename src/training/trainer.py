@@ -21,15 +21,7 @@ class Trainer:
         self.val_loader = val_loader
         self.config = config
 
-        if device == "auto":
-            self.device = (
-                "cuda" if torch.cuda.is_available()
-                else "mps" if torch.backends.mps.is_available()
-                else "cpu"
-            )
-        else:
-            self.device = device
-
+        self.device = self._resolve_device(device)
         print(f"Using device: {self.device}")
         self.model = self.model.to(self.device)
 
@@ -42,6 +34,23 @@ class Trainer:
 
         self.best_val_loss = float("inf")
         self.history = []
+
+    @staticmethod
+    def _resolve_device(device: str) -> str:
+        if device != "auto":
+            return device
+        if torch.cuda.is_available():
+            return "cuda"
+        if torch.backends.mps.is_available():
+            return "mps"
+        return "cpu"
+
+    @staticmethod
+    def _loader_length(loader: DataLoader, split: str) -> int:
+        length = len(loader)
+        if length == 0:
+            raise ValueError(f"{split} loader is empty.")
+        return length
 
     def _build_optimizer(self) -> torch.optim.Optimizer:
         opt_config = self.config.get("optimizer", {})
@@ -102,7 +111,7 @@ class Trainer:
             images = batch["image"].to(self.device)
             masks = batch["mask"].to(self.device)
 
-            self.optimizer.zero_grad()
+            self.optimizer.zero_grad(set_to_none=True)
             preds = self.model(images)
 
             if isinstance(preds, (list, tuple)):
@@ -121,7 +130,7 @@ class Trainer:
 
             total_loss += loss.item()
 
-        n = len(self.train_loader)
+        n = self._loader_length(self.train_loader, "Training")
         return {
             "loss": total_loss / n,
             "dice": total_dice / n,
@@ -149,7 +158,7 @@ class Trainer:
             for k in all_metrics:
                 all_metrics[k] += metrics[k]
 
-        n = len(self.val_loader)
+        n = self._loader_length(self.val_loader, "Validation")
         return {
             "loss": total_loss / n,
             **{k: v / n for k, v in all_metrics.items()},
@@ -181,14 +190,14 @@ class Trainer:
         )
 
     def fit(self):
-        epochs = self.config.get("epochs", 200)
-        log_every = self.config.get("log_every_n_epochs", 1)
+        epochs = int(self.config.get("epochs", 200))
+        log_every = max(1, int(self.config.get("log_every_n_epochs", 1)))
 
         print(f"\nStarting training for {epochs} epochs...")
         print("=" * 70)
 
         for epoch in range(1, epochs + 1):
-            start = time.time()
+            start = time.perf_counter()
 
             train_metrics = self._train_epoch()
             val_metrics = self._val_epoch()
@@ -196,7 +205,7 @@ class Trainer:
             if self.scheduler:
                 self.scheduler.step()
 
-            elapsed = time.time() - start
+            elapsed = time.perf_counter() - start
 
             record = {
                 "epoch": epoch,

@@ -51,7 +51,8 @@ def parse_args():
 
 def download_file(url: str, destination: Path) -> None:
     request = Request(url, headers={"User-Agent": "colonoscopy-segmentation-reproduction"})
-    with urlopen(request) as response, open(destination, "wb") as output_file:
+    destination.parent.mkdir(parents=True, exist_ok=True)
+    with urlopen(request) as response, destination.open("wb") as output_file:
         shutil.copyfileobj(response, output_file)
 
 
