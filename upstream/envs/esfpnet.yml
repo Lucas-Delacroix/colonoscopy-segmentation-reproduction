@@ -7,6 +7,7 @@ dependencies:
   - pytorch=1.11.0
   - torchvision=0.12.0
   - cudatoolkit=11.3
+  - conda-forge::opencv
   - conda-forge::mmcv-full
   - pip
   - pip:
@@ -17,4 +18,3 @@ dependencies:
       - pillow
       - numpy
       - matplotlib
-      - opencv-python

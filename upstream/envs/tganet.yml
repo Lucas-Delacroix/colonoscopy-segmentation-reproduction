@@ -10,8 +10,11 @@ dependencies:
   - pip
   - pip:
       - albumentations
-      - opencv-python
-      - numpy
+      - "opencv-python<4.12"
+      - "opencv-python-headless<4.12"
+      - "numpy<2"
+      - bpemb
       - scikit-learn
+      - scikit-image
       - tqdm
       - matplotlib

@@ -22,7 +22,7 @@ train_pipeline = [
          brightness_delta=51,
          contrast_range=(0.8, 1.2),
          saturation_range=(0.8, 1.2),
-         hue_delta=0),
+         hue_delta=1),
     dict(type='Normalize', **img_norm_cfg),
     dict(type='Pad', size=crop_size, pad_val=0, seg_pad_val=0),
     dict(type='DefaultFormatBundle'),
@@ -81,6 +81,16 @@ data = dict(
         classes=classes,
         palette=palette,
         pipeline=test_pipeline,
+    ),
+    val_dataloader=dict(
+        workers_per_gpu=0,
+        persistent_workers=False,
+        pin_memory=False,
+    ),
+    test_dataloader=dict(
+        workers_per_gpu=0,
+        persistent_workers=False,
+        pin_memory=False,
     ),
 )
 
@@ -149,7 +159,13 @@ lr_config = dict(
     min_lr=0.0,
     by_epoch=False,
 )
-runner = dict(type='IterBasedRunner', max_iters=20000)
-checkpoint_config = dict(by_epoch=False, interval=2000)
-evaluation = dict(interval=2000, metric='mIoU', pre_eval=True)
+runner = dict(_delete_=True, type='EpochBasedRunner', max_epochs=200)
+log_config = dict(
+    interval=50,
+    hooks=[
+        dict(type='TextLoggerHook', by_epoch=False),
+    ],
+)
+checkpoint_config = dict(by_epoch=True, interval=1, max_keep_ckpts=3)
+evaluation = dict(interval=1, metric='mIoU', pre_eval=True, save_best='mIoU', rule='greater')
 work_dir = './work_dirs/kvasir_binary'

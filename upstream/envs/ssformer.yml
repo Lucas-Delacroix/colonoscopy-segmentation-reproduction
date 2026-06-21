@@ -10,6 +10,8 @@ dependencies:
   - "conda-forge::mmcv-full>=1.3.13,<=1.6.0"
   - pip
   - pip:
+      - "setuptools<70"
+      - yapf==0.40.1
       - mmsegmentation==0.24.1
       - timm
       - einops

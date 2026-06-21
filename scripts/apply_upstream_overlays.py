@@ -18,6 +18,21 @@ def parse_args() -> argparse.Namespace:
     return parser.parse_args()
 
 
+def apply_replacements(repo_dir: Path, name: str, replacements: list[dict]) -> None:
+    for replacement in replacements:
+        target = repo_dir / replacement["target"]
+        old = replacement["old"]
+        new = replacement["new"]
+        text = target.read_text()
+        if old not in text:
+            if new in text:
+                print(f"{name}: already patched {target}")
+                continue
+            raise ValueError(f"Could not find replacement text in {target}: {old!r}")
+        target.write_text(text.replace(old, new, 1))
+        print(f"{name}: patched {target}")
+
+
 def main() -> None:
     args = parse_args()
     selected = set(args.only) if args.only else None
@@ -28,7 +43,8 @@ def main() -> None:
         if selected is not None and name not in selected:
             continue
         overlays = entry.get("overlay", [])
-        if not overlays:
+        replacements = entry.get("replace", [])
+        if not overlays and not replacements:
             continue
         repo_dir = ROOT / entry["cwd"]
         if not repo_dir.exists():
@@ -39,6 +55,7 @@ def main() -> None:
             target.parent.mkdir(parents=True, exist_ok=True)
             shutil.copy2(source, target)
             print(f"{name}: {source} -> {target}")
+        apply_replacements(repo_dir, name, replacements)
 
 
 if __name__ == "__main__":

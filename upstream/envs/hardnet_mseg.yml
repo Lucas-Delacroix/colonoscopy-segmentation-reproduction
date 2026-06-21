@@ -15,4 +15,5 @@ dependencies:
       - scipy
       - tqdm
       - torchstat
+      - thop
       - matplotlib

@@ -1,8 +1,11 @@
 from __future__ import annotations
 
 import argparse
+import os
 import shlex
 import subprocess
+import time
+from datetime import datetime
 from pathlib import Path
 
 import yaml
@@ -31,19 +34,55 @@ def conda_env_name(env_ref: str) -> str | None:
         return yaml.safe_load(file)["name"]
 
 
-def run_command(entry: dict, action: str) -> None:
+def clean_parent_python_env() -> dict[str, str]:
+    env = os.environ.copy()
+    env["PYTHONUNBUFFERED"] = "1"
+    virtual_env = env.pop("VIRTUAL_ENV", None)
+    if virtual_env:
+        virtual_env_bin = str(Path(virtual_env) / "bin")
+        path_parts = env.get("PATH", "").split(os.pathsep)
+        env["PATH"] = os.pathsep.join(part for part in path_parts if part != virtual_env_bin)
+    return env
+
+
+def timestamp() -> str:
+    return datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+
+
+def format_duration(seconds: float) -> str:
+    seconds = int(seconds)
+    hours, remainder = divmod(seconds, 3600)
+    minutes, seconds = divmod(remainder, 60)
+    if hours:
+        return f"{hours:02d}:{minutes:02d}:{seconds:02d}"
+    return f"{minutes:02d}:{seconds:02d}"
+
+
+def run_command(model: str, entry: dict, action: str) -> None:
     cwd = ROOT / entry.get(f"{action}_cwd", entry["cwd"])
     command = entry[action]
     env_name = conda_env_name(entry["env"])
+    command_args = shlex.split(command)
 
     if env_name:
-        resolved = ["conda", "run", "-n", env_name, "bash", "-lc", command]
+        resolved = ["conda", "run", "-n", env_name, "--no-capture-output", *command_args]
     else:
-        resolved = ["bash", "-lc", command]
+        resolved = command_args
 
     print(f"cwd: {cwd}")
     print("+ " + shlex.join(resolved), flush=True)
-    subprocess.run(resolved, cwd=cwd, check=True)
+    print(f"[{timestamp()}] START {model} {action}", flush=True)
+    started = time.monotonic()
+    completed = subprocess.run(resolved, cwd=cwd, env=clean_parent_python_env(), check=False)
+    duration = format_duration(time.monotonic() - started)
+    if completed.returncode != 0:
+        print(
+            f"[{timestamp()}] END {model} {action}: FAILED "
+            f"exit={completed.returncode}; duration={duration}",
+            flush=True,
+        )
+        raise SystemExit(completed.returncode)
+    print(f"[{timestamp()}] END {model} {action}: OK; duration={duration}", flush=True)
 
 
 def main() -> None:
@@ -54,7 +93,7 @@ def main() -> None:
     entry = commands[args.model]
     if args.action not in entry:
         raise SystemExit(f"Action '{args.action}' is not configured for '{args.model}'.")
-    run_command(entry, args.action)
+    run_command(args.model, entry, args.action)
 
 
 if __name__ == "__main__":

@@ -17,6 +17,7 @@ from Encoder import mit
 from mmcv.cnn import ConvModule
 from PIL import Image
 from torch.utils.data import DataLoader, Dataset
+from torchvision import transforms
 
 
 BACKBONES = {
@@ -238,25 +239,24 @@ def dice_score(pred: torch.Tensor, target: torch.Tensor, smooth: float = 1e-4) -
     return float((2 * intersection + smooth) / (pred.sum() + target.sum() + smooth))
 
 
-def evaluate(model: nn.Module, root: Path, image_size: int, threshold: float, device: torch.device) -> float:
+def evaluate(model: nn.Module, root: Path, image_size: int, threshold: float, device: torch.device) -> Tuple[float, float]:
     dataset = PolypDataset(root, image_size, augmentations=False)
-    transform = val_transform(image_size)
-    total = 0.0
+    loader = DataLoader(dataset, batch_size=1, shuffle=False)
+    total_loss = 0.0
+    total_dice = 0.0
     model.eval()
     with torch.no_grad():
-        for image_path, mask_path in zip(dataset.images, dataset.masks):
-            image = Image.open(image_path).convert("RGB")
-            target = Image.open(mask_path).convert("L")
-            target_array = np.asarray(target, np.float32)
-            target_array /= target_array.max() + 1e-8
-            tensor = transform(image).unsqueeze(0).to(device)
-            pred = model(tensor)
-            pred = F.interpolate(pred, size=target_array.shape, mode="bilinear", align_corners=False)
-            pred = (torch.sigmoid(pred) > threshold).float().cpu().squeeze()
-            target_tensor = torch.from_numpy((target_array > 0.5).astype(np.float32))
-            total += dice_score(pred, target_tensor)
+        for images, masks in loader:
+            images = images.to(device)
+            masks = masks.to(device)
+            pred = model(images)
+            pred = F.interpolate(pred, size=masks.shape[-2:], mode="bilinear", align_corners=False)
+            total_loss += float(structure_loss(pred, masks).detach().cpu())
+            binary_pred = (torch.sigmoid(pred) > threshold).float().cpu().squeeze()
+            target = masks.cpu().squeeze()
+            total_dice += dice_score(binary_pred, target)
     model.train()
-    return total / len(dataset)
+    return total_loss / len(dataset), total_dice / len(dataset)
 
 
 def checkpoint_path(args: argparse.Namespace) -> Path:
@@ -274,7 +274,7 @@ def train(args: argparse.Namespace) -> None:
         batch_size=args.batch_size,
         shuffle=True,
     )
-    best_dice = 0.0
+    best_val_loss = float("inf")
     output_path = checkpoint_path(args)
     output_path.parent.mkdir(parents=True, exist_ok=True)
 
@@ -292,15 +292,19 @@ def train(args: argparse.Namespace) -> None:
             optimizer.step()
             last_loss = float(loss.detach().cpu())
 
-        val_dice = evaluate(model, Path(args.val_root), args.image_size, args.threshold, device)
-        print(f"Epoch [{epoch:5d}/{args.epochs:5d}] | loss: {last_loss:6.6f} | validation_coeffient: {val_dice:6.6f}")
-        if val_dice > best_dice:
-            best_dice = val_dice
+        val_loss, val_dice = evaluate(model, Path(args.val_root), args.image_size, args.threshold, device)
+        print(
+            f"Epoch [{epoch:5d}/{args.epochs:5d}] | "
+            f"loss: {last_loss:6.6f} | val_loss: {val_loss:6.6f} | val_dice: {val_dice:6.6f}"
+        )
+        if val_loss < best_val_loss:
+            best_val_loss = val_loss
             torch.save({
                 "model_state_dict": model.state_dict(),
                 "model_type": args.model_type,
                 "image_size": args.image_size,
-                "best_dice": best_dice,
+                "best_val_loss": best_val_loss,
+                "val_dice": val_dice,
             }, output_path)
             print(f"Saved {output_path}")
 
